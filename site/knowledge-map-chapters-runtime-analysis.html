@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CMP框架知识地图 - 入口</title>
+  <title>CMP框架知识地图 - 章节</title>
   <style>
     :root {
-      --bg: #edf3f2;
+      --bg: #f3f6f5;
       --card: #ffffff;
       --ink: #10231c;
       --muted: #4f6d66;
@@ -14,17 +14,17 @@
       --line: #d5e2de;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: linear-gradient(180deg, #e6f3ef 0, var(--bg) 45%); color: var(--ink); }
-    .wrap { max-width: 920px; margin: 0 auto; padding: 32px 18px 48px; }
-    h1 { margin: 0 0 8px; font-size: 30px; }
-    .desc { margin: 0 0 8px; color: var(--muted); }
-    .meta-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-    .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-    .card { display: block; text-decoration: none; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 10px 24px rgba(16,35,28,.06); }
-    .title { font-size: 24px; font-weight: 700; margin: 0 0 8px; }
-    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--ink); }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 28px 18px 42px; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+    .back { color: var(--accent); text-decoration: none; font-size: 14px; }
+    h1 { margin: 0; font-size: 28px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .card { text-decoration: none; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .card h2 { margin: 0 0 6px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.45; min-height: 42px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     .chip { background: #dff1ec; color: var(--accent); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
-    .hint { margin-top: 14px; color: var(--muted); }
 
     .view-controls { position: fixed; top: 12px; right: 12px; z-index: 3000; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border: 1px solid #d5e2de; border-radius: 999px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(16,35,28,.12); }
     .view-controls button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
@@ -45,42 +45,22 @@
 
   <div class="zoom-root" id="zoom-root">
   <main class="wrap">
-    <h1>CMP框架知识地图</h1>
-    <p class="desc">点击卡片进入对应模块章节，再查看完整内容页。</p>
-    <div class="meta-top">
-      <span class="chip">模块 3 个</span>
-      <span class="chip">总章节 13 个</span>
-      <span class="chip">总学习路径 324 / 60 分钟</span>
+    <div class="top">
+      <a class="back" href="knowledge-map.html">返回入口</a>
+      <a class="back" href="knowledge-map-chapters.html">全部章节</a>
     </div>
-    <div class="list">
+    <h1>Runtime Analysis章节</h1>
+    <div class="grid">
 
-    <a class="card" href="knowledge-map-chapters-environment-setup.html">
-      <div class="title">环境搭建</div>
-      <div>从文档集合生成的学习地图入口，包含章节卡片和完整内容页面。</div>
-      <div class="meta">
-        <span class="chip">章节 4 个</span>
-        <span class="chip">学习路径 124 分钟</span>
-      </div>
-      <div class="hint">点击进入</div>
-    </a>
-    <a class="card" href="knowledge-map-chapters-principle-analysis.html">
-      <div class="title">原理分析</div>
-      <div>从文档集合生成的学习地图入口，包含章节卡片和完整内容页面。</div>
-      <div class="meta">
-        <span class="chip">章节 8 个</span>
-        <span class="chip">学习路径 250 分钟</span>
-      </div>
-      <div class="hint">点击进入</div>
-    </a>
-    <a class="card" href="knowledge-map-chapters-runtime-analysis.html">
-      <div class="title">Runtime Analysis</div>
-      <div>从文档集合生成的学习地图入口，包含章节卡片和完整内容页面。</div>
-      <div class="meta">
-        <span class="chip">章节 1 个</span>
-        <span class="chip">学习路径 69 分钟</span>
-      </div>
-      <div class="hint">点击进入</div>
-    </a>
+      <a class="card" href="knowledge-map-pages/slottable-composition-8939c899.html?chapter=runtime-analysis">
+        <h2>SlotTable 与 Composition 完整详解</h2>
+        <p>SlotTable 与 Composition 完整详解 目录 SlotTable 概述 为什么需要 SlotTable SlotTable 的核心结构 核心概念详解 Slo...</p>
+        <div class="meta">
+          <span class="chip">深入</span>
+          <span class="chip">69 分钟</span>
+          <span class="chip">runtime-analysis/SlotTable 与 Composition 完整详解.docx</span>
+        </div>
+      </a>
     </div>
   </main>
   </div>
@@ -93,7 +73,7 @@
       const min = 0.6;
       const max = 2.4;
       const step = 0.1;
-      const key = "km_portal_zoom";
+      const key = "km_chapters_zoom";
       let scale = 1;
 
       try {
