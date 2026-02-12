@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>流水线问题处理</title>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --ink: #10231c;
+      --muted: #4f6d66;
+      --accent: #0f7668;
+      --line: #d5e2de;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--ink); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 18px 42px; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .back { color: var(--accent); text-decoration: none; font-size: 14px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .chip { background: #dff1ec; color: var(--accent); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+    .section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; box-shadow: 0 8px 24px rgba(16,35,28,.05); }
+    .section-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .section-head h2 { margin: 0; font-size: 20px; }
+    .section-head span { color: var(--accent); font-size: 13px; }
+    .summary { color: #48665f; margin: 8px 0; font-size: 15px; line-height: 1.65; }
+    .points { margin: 0 0 8px; padding-left: 18px; color: #48665f; }
+    .points li { line-height: 1.65; }
+    .content { margin: 0; background: linear-gradient(180deg, #fbfefe 0%, #f7fbfa 100%); border: 1px solid var(--line); border-radius: 12px; padding: 14px; line-height: 1.7; font-size: 16px; color: #173029; }
+    .content h1, .content h2, .content h3, .content h4 { margin: 14px 0 8px; line-height: 1.35; color: #0f3028; }
+    .content h1:first-child, .content h2:first-child, .content h3:first-child, .content h4:first-child { margin-top: 0; }
+    .content h2 { font-size: 24px; font-weight: 750; }
+    .content h3 { font-size: 20px; font-weight: 700; }
+    .content h4 { font-size: 17px; font-weight: 680; color: #1b4b40; }
+    .content .auto-h3 { border-left: 4px solid #78b6a7; padding-left: 10px; }
+    .content .auto-h4 { color: #205145; }
+    .content p { margin: 0 0 9px; color: #1e3b34; }
+    .content p:last-child { margin-bottom: 0; }
+    .content ul, .content ol { margin: 0 0 10px; padding-left: 20px; }
+    .content li + li { margin-top: 6px; }
+    .content.xmind-outline { background: linear-gradient(180deg, #f8fcfb 0%, #f2f8f6 100%); }
+    .content.xmind-outline ul, .content.xmind-outline ol {
+      list-style: none;
+      margin: 8px 0 0 0;
+      padding-left: 22px;
+      border-left: 1px solid #c7ddd6;
+    }
+    .content.xmind-outline > ul, .content.xmind-outline > ol {
+      border-left: none;
+      padding-left: 0;
+      margin-top: 0;
+    }
+    .content.xmind-outline li {
+      position: relative;
+      margin: 8px 0;
+      padding: 6px 10px;
+      background: #ffffff;
+      border: 1px solid #d6e7e2;
+      border-radius: 10px;
+      box-shadow: 0 1px 0 rgba(15, 87, 74, 0.06);
+    }
+    .content.xmind-outline li::before {
+      content: "";
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      width: 22px;
+      border-top: 1px solid #c7ddd6;
+      transform: translateY(-50%);
+    }
+    .content.xmind-outline > ul > li::before,
+    .content.xmind-outline > ol > li::before { display: none; }
+    .content.xmind-outline li > ul,
+    .content.xmind-outline li > ol { margin-top: 8px; }
+    .content blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid #99c6bb; background: #edf7f4; color: #375852; border-radius: 6px; }
+    .content hr { border: none; border-top: 1px dashed #b8d2cb; margin: 12px 0; }
+    .content a { color: #0b6d61; text-decoration: none; border-bottom: 1px dashed rgba(11,109,97,.35); }
+    .content a:hover { border-bottom-style: solid; }
+    .content code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+    .content :not(pre) > code { background: #e6f2ef; color: #0f5f54; border-radius: 6px; padding: 2px 6px; }
+    .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
+    .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
+    .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .content .kv-key { color: #1b5e50; font-weight: 700; }
+    .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
+    .doc-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    .doc-table th, .doc-table td { border: 1px solid #c8d8d3; padding: 8px; text-align: left; vertical-align: top; }
+    .doc-table th { background: #e8f4f0; }
+    .doc-figure { margin: 10px 0; }
+    .doc-figure img { max-width: 100%; height: auto; border: 1px solid #c8d8d3; border-radius: 8px; display: block; background: #f3f7f6; }
+    .doc-figure.xmind-figure { margin: 6px 0; }
+    .doc-figure.xmind-figure figcaption { margin-top: 8px; font-size: 13px; color: #496861; }
+    .doc-figure .img-fallback { display: none; margin-top: 6px; font-size: 12px; color: #496861; }
+    .doc-figure .img-fallback a { color: #0f7668; }
+    .doc-figure.img-load-failed .img-fallback { display: block; }
+
+    .view-controls { position: fixed; top: 12px; right: 12px; z-index: 3000; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border: 1px solid #d5e2de; border-radius: 999px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(16,35,28,.12); }
+    .view-controls button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
+    .view-controls button:hover { background: #e3f2ee; }
+    .view-controls .zoom-value { font-size: 12px; color: #3b5d56; min-width: 44px; text-align: center; }
+    .zoom-root { transform-origin: top center; }
+    
+
+    .doc-figure img { cursor: zoom-in; }
+    .img-modal { position: fixed; inset: 0; display: none; z-index: 4000; }
+    .img-modal.open { display: block; }
+    .img-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 18, .85); }
+    .img-modal-toolbar { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; gap: 6px; align-items: center; background: rgba(255,255,255,.95); border-radius: 999px; padding: 6px 8px; }
+    .img-modal-toolbar button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; }
+    .img-modal-toolbar .zoom-value { min-width: 44px; text-align: center; font-size: 12px; color: #3b5d56; }
+    .img-modal-image-wrap { position: absolute; inset: 64px 24px 24px; display: grid; place-items: center; overflow: auto; cursor: grab; user-select: none; touch-action: none; }
+    .img-modal-image-wrap.dragging { cursor: grabbing; }
+    .img-modal-image-wrap img { max-width: 100%; max-height: 100%; transform-origin: center center; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+    
+  </style>
+</head>
+<body>
+  
+  <div class="view-controls" aria-label="页面缩放工具">
+    <button type="button" data-zoom="out" title="缩小">-</button>
+    <button type="button" data-zoom="in" title="放大">+</button>
+    <button type="button" data-zoom="reset" title="重置">100%</button>
+    <span class="zoom-value" id="zoom-value">100%</span>
+  </div>
+
+  <div class="zoom-root" id="zoom-root">
+  <main class="wrap">
+    <div class="top">
+      <a class="back" href="../knowledge-map.html">返回入口</a>
+      <a class="back" id="chapter-back-link" href="../knowledge-map-chapters.html">返回章节列表</a>
+    </div>
+    <h1>流水线问题处理</h1>
+    <div class="meta">
+      <span class="chip">CMP框架知识地图</span>
+      <span class="chip">2 分钟</span>
+      <span class="chip">environment-setup/流水线问题处理.docx</span>
+    </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>流水线问题处理</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">流水线问题处理 开发者提交Pull Request后，评论&quot;start build&quot;会触发门禁校验，系统将自动检查，在此期间可能会遇到一些问题，本文档介绍流水线的常见问题及解...</p>
+        <ul class="points"><li>流水线问题处理</li><li>开发者提交Pull Request后，评论&quot;start build&quot;会触发门禁校验，系统将自动检查，在此期间可能会遇到一些问题，本文档介绍流水线的常见问题及解决方法。</li><li>一、DCO校验异常处理</li><li>未签署DCO协议</li></ul>
+        <div class="content rich"><h1>流水线问题处理</h1>
+<p>开发者提交Pull Request后，评论"start build"会触发门禁校验，系统将自动检查，在此期间可能会遇到一些问题，本文档介绍流水线的常见问题及解决方法。</p>
+<h2>一、DCO校验异常处理</h2>
+<ol>
+<li>未签署DCO协议</li>
+</ol>
+<ul>
+<li><em>校验失败原因：PR提交者未通过官方指定渠道完成DCO协议签署，或签署过程中使用的邮箱与代码提交账号绑定的邮箱不一致，导致系统无法匹配校验信息，最终触发校验失败。</em></li>
+<li><em>解决办法：</em>https://dco.openharmony.cn/sign点击链接签署，注意签署的邮箱必须和提交代码的账号的邮箱一致，然后评论区评论<em>check dco即可。</em><br/></li>
+</ul>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10877e53-4a74c8f717.png" alt="流水线问题处理 图示" /></figure>
+<ol>
+<li>Commits中未包含Signed-off-by信息</li>
+</ol>
+<ul>
+<li><em>校验失败原因：代码提交时，未在Commit描述信息中添加`Signed-off-by`声明，或声明格式不符合系统校验规范（如用户名/邮箱错误、缺少关键格式符号等），导致系统无法识别校验信息，进而触发失败。</em></li>
+<li><em>解决办法：首先通过Git工具重置分支至校验异常前状态 需将当前分支回退至未触发DCO校验异常的代码版本，操作如下： </em></li>
+</ul>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10877e53-21767bf8c9.png" alt="流水线问题处理 图示" /></figure>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10877e53-70d8762a85.png" alt="流水线问题处理 图示" /></figure>
+<p>然后重新提交，并且加上自己的signed-off-by信息，格式为<em>user.name &lt;user.email&gt;</em></p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10877e53-538cc84cb2.png" alt="流水线问题处理 图示" /></figure></div>
+      </section>
+  </main>
+  </div>
+
+  <div class="img-modal" id="img-modal" aria-hidden="true">
+    <div class="img-modal-backdrop"></div>
+    <div class="img-modal-toolbar">
+      <button type="button" id="img-zoom-out" title="缩小">-</button>
+      <button type="button" id="img-zoom-in" title="放大">+</button>
+      <button type="button" id="img-zoom-reset" title="重置">100%</button>
+      <span class="zoom-value" id="img-zoom-value">100%</span>
+      <button type="button" id="img-modal-close" title="关闭">关闭</button>
+    </div>
+    <div class="img-modal-image-wrap">
+      <img id="img-modal-img" alt="" />
+    </div>
+  </div>
+
+
+  <script>
+    (function () {
+      const root = document.getElementById('zoom-root');
+      if (!root) return;
+      const valueEl = document.getElementById('zoom-value');
+      const min = 0.6;
+      const max = 2.4;
+      const step = 0.1;
+      const key = "km_detail_zoom";
+      let scale = 1;
+
+      try {
+        const saved = parseFloat(localStorage.getItem(key) || "1");
+        if (!Number.isNaN(saved)) scale = saved;
+      } catch (_) {}
+
+      const clamp = (n) => Math.min(max, Math.max(min, n));
+
+      const apply = () => {
+        scale = clamp(scale);
+        if ("zoom" in root.style) {
+          root.style.zoom = String(scale);
+        } else {
+          root.style.transform = `scale(${scale})`;
+          root.style.transformOrigin = "top center";
+        }
+        if (valueEl) valueEl.textContent = `${Math.round(scale * 100)}%`;
+        try {
+          localStorage.setItem(key, String(scale));
+        } catch (_) {}
+      };
+
+      document.querySelectorAll("[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-zoom");
+          if (action === "in") scale += step;
+          if (action === "out") scale -= step;
+          if (action === "reset") scale = 1;
+          apply();
+        });
+      });
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (!(event.ctrlKey || event.metaKey)) return;
+          if (document.body.classList.contains("img-modal-open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+
+      apply();
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const modal = document.getElementById("img-modal");
+      if (!modal) return;
+      const image = document.getElementById("img-modal-img");
+      const imageWrap = modal.querySelector(".img-modal-image-wrap");
+      const closeBtn = document.getElementById("img-modal-close");
+      const zoomOutBtn = document.getElementById("img-zoom-out");
+      const zoomInBtn = document.getElementById("img-zoom-in");
+      const zoomResetBtn = document.getElementById("img-zoom-reset");
+      const zoomValue = document.getElementById("img-zoom-value");
+      if (!image || !imageWrap) return;
+
+      let scale = 1;
+      const min = 0.2;
+      const max = 6;
+      const step = 0.15;
+      let isDragging = false;
+      let dragPointerId = null;
+      let lastX = 0;
+      let lastY = 0;
+
+      const apply = () => {
+        scale = Math.min(max, Math.max(min, scale));
+        image.style.transform = `scale(${scale})`;
+        if (zoomValue) zoomValue.textContent = `${Math.round(scale * 100)}%`;
+      };
+
+      const open = (src, alt) => {
+        image.src = src;
+        image.alt = alt || "";
+        scale = 1;
+        apply();
+        imageWrap.scrollLeft = 0;
+        imageWrap.scrollTop = 0;
+        modal.classList.add("open");
+        document.body.classList.add("img-modal-open");
+        document.body.style.overflow = "hidden";
+      };
+
+      const stopDragging = () => {
+        isDragging = false;
+        dragPointerId = null;
+        imageWrap.classList.remove("dragging");
+      };
+
+      const close = () => {
+        stopDragging();
+        modal.classList.remove("open");
+        document.body.classList.remove("img-modal-open");
+        document.body.style.overflow = "";
+        image.removeAttribute("src");
+      };
+
+      document.querySelectorAll(".doc-figure img").forEach((img) => {
+        const figure = img.closest(".doc-figure");
+        const originSrc = img.getAttribute("data-origin-src") || img.src;
+
+        const markFailed = () => {
+          if (!figure) return;
+          figure.classList.add("img-load-failed");
+          const link = figure.querySelector(".img-open-link");
+          if (link && !link.getAttribute("href")) {
+            link.setAttribute("href", originSrc);
+          }
+        };
+
+        img.addEventListener("error", () => {
+          if (img.dataset.retriedNoQuery !== "1") {
+            const noQuery = originSrc.split("?")[0];
+            if (noQuery && noQuery !== originSrc) {
+              img.dataset.retriedNoQuery = "1";
+              img.src = noQuery;
+              return;
+            }
+          }
+          markFailed();
+        });
+
+        if (img.complete && img.naturalWidth === 0) {
+          markFailed();
+        }
+
+        img.addEventListener("click", () => {
+          if (img.naturalWidth > 0) {
+            open(img.currentSrc || img.src, img.alt);
+            return;
+          }
+          if (originSrc && originSrc !== "#") {
+            window.open(originSrc, "_blank", "noopener,noreferrer");
+          }
+        });
+      });
+
+      closeBtn?.addEventListener("click", close);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal || event.target.classList.contains("img-modal-backdrop")) {
+          close();
+        }
+      });
+
+      zoomInBtn?.addEventListener("click", () => { scale += step; apply(); });
+      zoomOutBtn?.addEventListener("click", () => { scale -= step; apply(); });
+      zoomResetBtn?.addEventListener("click", () => { scale = 1; apply(); });
+
+      imageWrap.addEventListener("pointerdown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.button !== 0) return;
+        isDragging = true;
+        dragPointerId = event.pointerId;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        imageWrap.classList.add("dragging");
+        imageWrap.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      });
+
+      imageWrap.addEventListener("pointermove", (event) => {
+        if (!isDragging || event.pointerId !== dragPointerId) return;
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        imageWrap.scrollLeft -= dx;
+        imageWrap.scrollTop -= dy;
+        lastX = event.clientX;
+        lastY = event.clientY;
+      });
+
+      const onPointerDone = (event) => {
+        if (event.pointerId !== dragPointerId) return;
+        imageWrap.releasePointerCapture?.(event.pointerId);
+        stopDragging();
+      };
+
+      imageWrap.addEventListener("pointerup", onPointerDone);
+      imageWrap.addEventListener("pointercancel", onPointerDone);
+
+      modal.addEventListener(
+        "wheel",
+        (event) => {
+          if (!modal.classList.contains("open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.key === "Escape") {
+          close();
+        } else if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const roots = document.querySelectorAll(".content.rich");
+      if (!roots.length) return;
+
+      const h3Pattern = /^(?:[一二三四五六七八九十]+[、.．]|\d+[、.．)])\s*/;
+      const h4Pattern = /^\d+\.\d+\s*/;
+      const shortTitlePattern = /(?:流程|步骤|说明|配置|命令|目录|要求|概览)$/;
+      const bulletPattern = /^[-*•]\s+/;
+      const numberItemPattern = /^\d+[.)、]\s+/;
+
+      const commandPattern =
+        /^(?:\$\s*)?(?:export|git|ohpm|npm|pnpm|yarn|npx|python|python3|java|javac|gradle|\.\/gradlew|\.\/|adb|hdc|cmake|make|brew|curl|wget|source|chmod|chown|cp|mv|ls|cat|echo)\b/i;
+      const envAssignPattern = /^(?:[A-Z_][A-Z0-9_]*=|PATH=|JAVA_HOME=|ANDROID_HOME=)/;
+      const pathLikePattern = /(?:^\/|^\.\/|https?:\/\/|[\w.-]+\/[\w./-]+)/;
+
+      const esc = (value) => {
+        const span = document.createElement("span");
+        span.textContent = value;
+        return span.innerHTML;
+      };
+
+      const isCommandLike = (text) => {
+        const sample = text.trim();
+        if (!sample) return false;
+        if (sample.length > 220) return false;
+        if (commandPattern.test(sample)) return true;
+        if (envAssignPattern.test(sample)) return true;
+        if (sample.includes(" && ") || sample.includes(" || ")) return true;
+        if (pathLikePattern.test(sample) && /\b(?:build|publish|clone|install|run|export|gradle|script)\b/i.test(sample)) {
+          return true;
+        }
+        return false;
+      };
+
+      roots.forEach((root) => {
+        const children = Array.from(root.children);
+        const rebuilt = [];
+        let codeBuffer = [];
+
+        const flushCode = () => {
+          if (!codeBuffer.length) return;
+          const pre = document.createElement("pre");
+          pre.className = "auto-code";
+          const code = document.createElement("code");
+          code.textContent = codeBuffer.join("\n");
+          pre.appendChild(code);
+          rebuilt.push(pre);
+          codeBuffer = [];
+        };
+
+        children.forEach((node) => {
+          if (node.tagName !== "P") {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          const text = (node.textContent || "").replace(/\u00A0/g, " ").trim();
+          if (!text) return;
+
+          if (h3Pattern.test(text)) {
+            flushCode();
+            const h3 = document.createElement("h3");
+            h3.className = "auto-h3";
+            h3.textContent = text;
+            rebuilt.push(h3);
+            return;
+          }
+
+          if (h4Pattern.test(text) || (text.length <= 24 && shortTitlePattern.test(text))) {
+            flushCode();
+            const h4 = document.createElement("h4");
+            h4.className = "auto-h4";
+            h4.textContent = text;
+            rebuilt.push(h4);
+            return;
+          }
+
+          const keyValue = text.match(/^([^:：]{2,20}[：:])\s*(.+)$/);
+          if (keyValue) {
+            const key = keyValue[1].trim();
+            const value = keyValue[2].trim();
+            if (value && isCommandLike(value)) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><code>${esc(value)}</code>`;
+              rebuilt.push(row);
+              return;
+            }
+            if (value && value.length <= 120) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><span>${esc(value)}</span>`;
+              rebuilt.push(row);
+              return;
+            }
+          }
+
+          if (isCommandLike(text)) {
+            codeBuffer.push(text);
+            return;
+          }
+
+          if (bulletPattern.test(text) || numberItemPattern.test(text)) {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          flushCode();
+          rebuilt.push(node);
+        });
+
+        flushCode();
+        root.replaceChildren(...rebuilt);
+      });
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const back = document.getElementById("chapter-back-link");
+      if (!back) return;
+      const chapter = (new URLSearchParams(window.location.search).get("chapter") || "all").trim().toLowerCase();
+      if (!/^[a-z0-9-]+$/.test(chapter) || chapter === "all") {
+        back.href = "../knowledge-map-chapters.html";
+        return;
+      }
+      back.href = `../knowledge-map-chapters-${chapter}.html`;
+    })();
+  </script>
+</body>
+</html>

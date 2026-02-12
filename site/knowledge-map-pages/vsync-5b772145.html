@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VSYNC空跑问题根因分析与解决方案</title>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --ink: #10231c;
+      --muted: #4f6d66;
+      --accent: #0f7668;
+      --line: #d5e2de;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--ink); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 18px 42px; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .back { color: var(--accent); text-decoration: none; font-size: 14px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .chip { background: #dff1ec; color: var(--accent); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+    .section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; box-shadow: 0 8px 24px rgba(16,35,28,.05); }
+    .section-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .section-head h2 { margin: 0; font-size: 20px; }
+    .section-head span { color: var(--accent); font-size: 13px; }
+    .summary { color: #48665f; margin: 8px 0; font-size: 15px; line-height: 1.65; }
+    .points { margin: 0 0 8px; padding-left: 18px; color: #48665f; }
+    .points li { line-height: 1.65; }
+    .content { margin: 0; background: linear-gradient(180deg, #fbfefe 0%, #f7fbfa 100%); border: 1px solid var(--line); border-radius: 12px; padding: 14px; line-height: 1.7; font-size: 16px; color: #173029; }
+    .content h1, .content h2, .content h3, .content h4 { margin: 14px 0 8px; line-height: 1.35; color: #0f3028; }
+    .content h1:first-child, .content h2:first-child, .content h3:first-child, .content h4:first-child { margin-top: 0; }
+    .content h2 { font-size: 24px; font-weight: 750; }
+    .content h3 { font-size: 20px; font-weight: 700; }
+    .content h4 { font-size: 17px; font-weight: 680; color: #1b4b40; }
+    .content .auto-h3 { border-left: 4px solid #78b6a7; padding-left: 10px; }
+    .content .auto-h4 { color: #205145; }
+    .content p { margin: 0 0 9px; color: #1e3b34; }
+    .content p:last-child { margin-bottom: 0; }
+    .content ul, .content ol { margin: 0 0 10px; padding-left: 20px; }
+    .content li + li { margin-top: 6px; }
+    .content.xmind-outline { background: linear-gradient(180deg, #f8fcfb 0%, #f2f8f6 100%); }
+    .content.xmind-outline ul, .content.xmind-outline ol {
+      list-style: none;
+      margin: 8px 0 0 0;
+      padding-left: 22px;
+      border-left: 1px solid #c7ddd6;
+    }
+    .content.xmind-outline > ul, .content.xmind-outline > ol {
+      border-left: none;
+      padding-left: 0;
+      margin-top: 0;
+    }
+    .content.xmind-outline li {
+      position: relative;
+      margin: 8px 0;
+      padding: 6px 10px;
+      background: #ffffff;
+      border: 1px solid #d6e7e2;
+      border-radius: 10px;
+      box-shadow: 0 1px 0 rgba(15, 87, 74, 0.06);
+    }
+    .content.xmind-outline li::before {
+      content: "";
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      width: 22px;
+      border-top: 1px solid #c7ddd6;
+      transform: translateY(-50%);
+    }
+    .content.xmind-outline > ul > li::before,
+    .content.xmind-outline > ol > li::before { display: none; }
+    .content.xmind-outline li > ul,
+    .content.xmind-outline li > ol { margin-top: 8px; }
+    .content blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid #99c6bb; background: #edf7f4; color: #375852; border-radius: 6px; }
+    .content hr { border: none; border-top: 1px dashed #b8d2cb; margin: 12px 0; }
+    .content a { color: #0b6d61; text-decoration: none; border-bottom: 1px dashed rgba(11,109,97,.35); }
+    .content a:hover { border-bottom-style: solid; }
+    .content code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+    .content :not(pre) > code { background: #e6f2ef; color: #0f5f54; border-radius: 6px; padding: 2px 6px; }
+    .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
+    .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
+    .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .content .kv-key { color: #1b5e50; font-weight: 700; }
+    .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
+    .doc-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    .doc-table th, .doc-table td { border: 1px solid #c8d8d3; padding: 8px; text-align: left; vertical-align: top; }
+    .doc-table th { background: #e8f4f0; }
+    .doc-figure { margin: 10px 0; }
+    .doc-figure img { max-width: 100%; height: auto; border: 1px solid #c8d8d3; border-radius: 8px; display: block; background: #f3f7f6; }
+    .doc-figure.xmind-figure { margin: 6px 0; }
+    .doc-figure.xmind-figure figcaption { margin-top: 8px; font-size: 13px; color: #496861; }
+    .doc-figure .img-fallback { display: none; margin-top: 6px; font-size: 12px; color: #496861; }
+    .doc-figure .img-fallback a { color: #0f7668; }
+    .doc-figure.img-load-failed .img-fallback { display: block; }
+
+    .view-controls { position: fixed; top: 12px; right: 12px; z-index: 3000; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border: 1px solid #d5e2de; border-radius: 999px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(16,35,28,.12); }
+    .view-controls button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
+    .view-controls button:hover { background: #e3f2ee; }
+    .view-controls .zoom-value { font-size: 12px; color: #3b5d56; min-width: 44px; text-align: center; }
+    .zoom-root { transform-origin: top center; }
+    
+
+    .doc-figure img { cursor: zoom-in; }
+    .img-modal { position: fixed; inset: 0; display: none; z-index: 4000; }
+    .img-modal.open { display: block; }
+    .img-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 18, .85); }
+    .img-modal-toolbar { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; gap: 6px; align-items: center; background: rgba(255,255,255,.95); border-radius: 999px; padding: 6px 8px; }
+    .img-modal-toolbar button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; }
+    .img-modal-toolbar .zoom-value { min-width: 44px; text-align: center; font-size: 12px; color: #3b5d56; }
+    .img-modal-image-wrap { position: absolute; inset: 64px 24px 24px; display: grid; place-items: center; overflow: auto; cursor: grab; user-select: none; touch-action: none; }
+    .img-modal-image-wrap.dragging { cursor: grabbing; }
+    .img-modal-image-wrap img { max-width: 100%; max-height: 100%; transform-origin: center center; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+    
+  </style>
+</head>
+<body>
+  
+  <div class="view-controls" aria-label="页面缩放工具">
+    <button type="button" data-zoom="out" title="缩小">-</button>
+    <button type="button" data-zoom="in" title="放大">+</button>
+    <button type="button" data-zoom="reset" title="重置">100%</button>
+    <span class="zoom-value" id="zoom-value">100%</span>
+  </div>
+
+  <div class="zoom-root" id="zoom-root">
+  <main class="wrap">
+    <div class="top">
+      <a class="back" href="../knowledge-map.html">返回入口</a>
+      <a class="back" id="chapter-back-link" href="../knowledge-map-chapters.html">返回章节列表</a>
+    </div>
+    <h1>VSYNC空跑问题根因分析与解决方案</h1>
+    <div class="meta">
+      <span class="chip">CMP框架知识地图</span>
+      <span class="chip">21 分钟</span>
+      <span class="chip">principle-analysis/VSYNC空跑问题根因分析与解决方案.docx</span>
+    </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>VSYNC空跑问题根因分析与解决方案</h2>
+          <span>21 分钟</span>
+        </div>
+        <p class="summary">VSYNC空跑问题根因分析与解决方案 VSYNC 空跑问题根因分析与解决方案 问题概述 问题现象 在性能分析工具（Profiler Frame）中观察到以下现象： VSYNC...</p>
+        <ul class="points"><li>willDraw 回调的触发时机</li><li>形成死循环</li><li>notifyRedraw() 的作用</li><li>为什么会导致空跑？</li></ul>
+        <div class="content rich"><h1>VSYNC空跑问题根因分析与解决方案</h1>
+<h1><strong>VSYNC 空跑问题根因分析与解决方案</strong></h1>
+<h2><strong>问题概述</strong></h2>
+<h3><strong>问题现象</strong></h3>
+<p>在性能分析工具（Profiler Frame）中观察到以下现象：</p>
+<ol>
+<li><strong>VSYNC 信号持续到达</strong>：顶部的绿色垂直线表示 VSYNC 信号以固定频率持续到达</li>
+<li><strong>Composition 工作几乎为空</strong>：（Composition 重组工作）在大部分时间内为空或只有极小的活动</li>
+<li><strong>Handling 工作持续进行</strong>：（渲染处理工作）在每个 VSYNC 信号时都有活动，形成重复的节律模式</li>
+</ol>
+<p><strong>关键问题</strong>：系统在每个 VSYNC 时都执行渲染处理工作，即使 Compose 层没有新的 UI 组合工作。</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/vsync-5b772145-c751b39721.png" alt="VSYNC空跑问题根因分析与解决方案 图示" /></figure>
+<h3><strong>性能影响</strong></h3>
+<ul>
+<li><strong>CPU 资源浪费</strong>：无意义的渲染处理占用 CPU 资源</li>
+<li><strong>功耗增加</strong>：持续的空跑导致不必要的功耗消耗</li>
+<li><strong>性能下降</strong>：影响其他任务的执行，降低整体性能</li>
+</ul>
+<hr />
+<h2><strong>根因分析</strong></h2>
+<h3><strong>问题代码位置</strong></h3>
+<p><strong>文件</strong>：<code>compose/ui/ui-arkui/src/ohosArm64Main/cpp/compose/src/main/ets/compose/CanvasNode.ets</code></p>
+<p><strong>问题代码</strong>（第 68-70 行）：</p>
+<pre><code>this.context.getUIObserver().on("willDraw", () =&gt; {
+this.notifyRedraw()
+})</code></pre>
+<h3><strong>根因详解</strong></h3>
+<h3><strong>1. </strong><strong><code>willDraw</code></strong><strong> 回调的触发时机</strong></h3>
+<p><code>willDraw</code> 是 ArkUI 框架在<strong>每次绘制前</strong>触发的回调。这意味着：</p>
+<ul>
+<li><strong>每次 VSYNC 信号到达时</strong>，ArkUI 准备绘制一帧</li>
+<li><strong>在绘制前</strong>，<code>willDraw</code> 回调被触发</li>
+<li><strong>回调中调用 </strong><strong><code>notifyRedraw()</code></strong>，请求下一次重绘</li>
+</ul>
+<h3><strong>2. 形成死循环</strong></h3>
+<pre><code>VSYNC 信号到达
+↓
+ArkUI 准备绘制（willDraw 触发）
+↓
+willDraw 回调执行：notifyRedraw()
+↓
+请求下一次重绘
+↓
+下一次 VSYNC 信号到达
+↓
+（循环继续...）</code></pre>
+<p><strong>关键问题</strong>：</p>
+<ul>
+<li><code>willDraw</code> 回调<strong>无条件</strong>调用 <code>notifyRedraw()</code></li>
+<li>即使<strong>没有实际的 UI 变化</strong>，也会触发重绘请求</li>
+<li>导致<strong>每个 VSYNC 都会执行渲染处理</strong>，形成”空跑”</li>
+</ul>
+<h3><strong>3. </strong><strong><code>notifyRedraw()</code></strong><strong> 的作用</strong></h3>
+<p>查看 <code>CanvasNode.ets</code> 第 83-89 行：</p>
+<pre><code>notifyRedraw() {
+if (!this.nodeIsDrawing) {
+this.nodeIsDrawing = true;
+this.controller?.notifyRedrawC(this.id) // ← 通知 C++ 层重绘
+this.context.postFrameCallback(new RenderFrameCallback(this));
+}
+}</code></pre>
+<p><strong>执行流程</strong>：</p>
+<ol>
+<li>调用 <code>notifyRedrawC(id)</code> 通知 C++ 层</li>
+<li>通过 NAPI 调用到 <code>ArkUIViewController.notifyRedraw()</code></li>
+<li>最终触发 <code>invalidate()</code> → 请求 VSYNC → 触发渲染处理</li>
+</ol>
+<h3><strong>4. 为什么会导致空跑？</strong></h3>
+<p><strong>正常流程应该是</strong>：</p>
+<pre><code>UI 状态变化
+↓
+invalidate() 被调用
+↓
+请求 VSYNC
+↓
+VSYNC 到达
+↓
+执行渲染</code></pre>
+<p><strong>结果</strong>：</p>
+<ul>
+<li>即使 Compose 没有新的组合工作</li>
+<li>渲染处理工作仍然在每个 VSYNC 时执行</li>
+<li>这就是”VSYNC 空跑”的根本原因</li>
+</ul>
+<hr />
+<h2><strong>解决方案</strong></h2>
+<h3><strong>解决思路</strong></h3>
+<p><strong>核心原则</strong>：<strong>按需请求 VSYNC</strong>，而不是无条件请求。</p>
+<p><strong>策略</strong>：</p>
+<ol>
+<li><strong>删除 </strong><strong><code>willDraw</code></strong><strong> 回调中的 </strong><strong><code>notifyRedraw()</code></strong><strong> 调用</strong></li>
+</ol>
+<ul>
+<li>避免每次绘制前都触发重绘请求</li>
+<li>打破死循环</li>
+</ul>
+<ol>
+<li><strong>在 </strong><strong><code>invalidate()</code></strong><strong> 中按需请求 VSYNC</strong></li>
+</ol>
+<ul>
+<li>只有当 Compose 层真正需要更新时才请求 VSYNC</li>
+<li>确保 VSYNC 请求与实际 UI 变化同步</li>
+</ul>
+<h3><strong>代码变更</strong></h3>
+<h3><strong>变更 1：删除 </strong><strong><code>willDraw</code></strong><strong> 回调</strong></h3>
+<p><strong>文件</strong>：<code>compose/ui/ui-arkui/src/ohosArm64Main/cpp/compose/src/main/ets/compose/CanvasNode.ets</code></p>
+<p><strong>变更前</strong>（第 67-71 行）：</p>
+<pre><code>this.frameRate = displaySync.create();
+this.context.getUIObserver().on("willDraw", () =&gt; {
+this.notifyRedraw()
+})
+this.frameRate.setExpectedFrameRateRange({expected: 120, min: 0, max: 120});</code></pre>
+<p><strong>变更后</strong>：</p>
+<pre><code>this.frameRate = displaySync.create();
+// 删除 willDraw 回调，避免无条件触发重绘
+// this.context.getUIObserver().on("willDraw", () =&gt; {
+// this.notifyRedraw()
+// })
+this.frameRate.setExpectedFrameRateRange({expected: 120, min: 0, max: 120});</code></pre>
+<p><strong>原因</strong>：</p>
+<ul>
+<li><code>willDraw</code> 回调在每次绘制前都会触发</li>
+<li>无条件调用 <code>notifyRedraw()</code></li>
+<li>删除后，重绘请求只在真正需要时（通过 <code>invalidate()</code>）触发</li>
+</ul>
+<h3><strong>变更 2：在 </strong><strong><code>invalidate()</code></strong><strong> 中按需请求 VSYNC</strong></h3>
+<p><strong>文件</strong>：<code>compose/ui/ui/src/ohosArm64Main/kotlin/androidx/compose/ui/arkui/ArkUIViewController.kt</code></p>
+<p><strong>变更前</strong>（第 212-219 行）：</p>
+<pre><code>override fun invalidate() {
+OhosTrace.traceSync("xxx test invalidate") {
+invalid = true
+Canvas.notifyRedraw(id.takeLast(1).toInt()) // ← 直接通知重绘
+frameController?.requireFrameCallback()
+}
+}</code></pre>
+<figure class="doc-figure"><img src="../knowledge-map-assets/vsync-5b772145-f0ac3c747f.png" alt="VSYNC空跑问题根因分析与解决方案 图示" /></figure>
+<p><strong>变更后</strong>：</p>
+<pre><code>override fun invalidate() {
+OhosTrace.traceSync("xxx test invalidate") {
+invalid = true
+Canvas.requestComposeVsyncAndNotify(id.takeLast(1).toInt()) // ← 通过 VSYNC 请求重绘
+//Canvas.notifyRedraw(id.takeLast(1).toInt()) // ← 已废弃，避免直接触发
+frameController?.requireFrameCallback()
+}
+}</code></pre>
+<p><strong>关键改进</strong>：</p>
+<ol>
+<li><strong>使用 </strong><strong><code>requestComposeVsyncAndNotify()</code></strong><strong> 替代 </strong><strong><code>notifyRedraw()</code></strong></li>
+</ol>
+<ul>
+<li><code>requestComposeVsyncAndNotify()</code> 会请求 VSYNC，并在 VSYNC 回调中触发 <code>notifyRedraw()</code></li>
+<li>确保重绘与 VSYNC 信号对齐，避免不必要的中间帧</li>
+</ul>
+<figure class="doc-figure"><img src="../knowledge-map-assets/vsync-5b772145-b03104ab67.png" alt="VSYNC空跑问题根因分析与解决方案 图示" /></figure>
+<h3><strong>变更后的调用链（正确）</strong></h3>
+<pre><code>Compose 状态变化
+↓
+invalidate() 被调用
+↓
+Canvas.requestComposeVsyncAndNotify() // ← 请求 VSYNC，但不立即触发
+↓
+等待下一个 VSYNC 信号
+↓
+VSYNC 回调触发 notifyRedraw()
+↓
+执行渲染处理（H... 轨道）
+↓
+如果没有新的 invalidate()，不再请求 VSYNC
+↓
+后续 VSYNC 信号到达时，没有渲染处理（H... 轨道为空）</code></pre>
+<p><strong>优势</strong>：</p>
+<ul>
+<li>只有在 <code>invalidate()</code> 被调用时（有实际的 UI 变化）才请求 VSYNC</li>
+<li>VSYNC 回调中触发重绘，确保与帧信号对齐</li>
+<li>没有 UI 变化时，不会执行渲染处理，避免”空跑”</li>
+</ul>
+<hr />
+<h2><strong>技术细节</strong></h2>
+<h3><strong><code>requestComposeVsyncAndNotify()</code></strong><strong> 的实现</strong></h3>
+<p><strong>位置</strong>：<code>OHRender/OHRender/src/oh/RenderNodeImplC.cpp</code></p>
+<p><strong>实现逻辑</strong>：</p>
+<pre><code>void RootRenderNodeManager::RequestComposeVsyncAndNotify(int32_t id) {
+RequestVsyncForNotify(id);
+}
+static void RequestVsyncForNotify(int32_t id) {
+OH_NativeVSync_RequestFrame(g_vsync_handle, OnNativeVsync,
+reinterpret_cast&lt;void*&gt;(static_cast&lt;intptr_t&gt;(id)));
+}
+static void OnNativeVsync(long long timestamp, void *data) {
+int32_t id = static_cast&lt;int32_t&gt;(reinterpret_cast&lt;intptr_t&gt;(data));
+if (id &gt;= 0) {
+RootRenderNodeManager::Instance().NotifyRedraw(id); // ← 在 VSYNC 回调中触发
+}
+}</code></pre>
+<p><strong>关键点</strong>：</p>
+<ul>
+<li><code>requestComposeVsyncAndNotify()</code> 不会立即触发重绘</li>
+<li>而是注册一个 VSYNC 回调</li>
+<li>当 VSYNC 信号到达时，回调中才调用 <code>NotifyRedraw()</code></li>
+<li>确保重绘与 VSYNC 信号对齐</li>
+</ul>
+<h3><strong><code>invalidate()</code></strong><strong> 的触发时机</strong></h3>
+<p><code>invalidate()</code> 在以下情况下被调用：</p>
+<ol>
+<li><strong>Compose 状态变化</strong>：</li>
+</ol>
+<ul>
+<li><code>mutableStateOf</code> 的值变化</li>
+<li><code>remember</code> 的状态更新</li>
+<li>触发重组</li>
+</ul>
+<ol>
+<li><strong>布局变化</strong>：</li>
+</ol>
+<ul>
+<li>组件大小变化</li>
+<li>布局约束变化</li>
+</ul>
+<ol>
+<li><strong>输入事件</strong>：</li>
+</ol>
+<ul>
+<li>触摸事件</li>
+<li>键盘事件</li>
+</ul>
+<ol>
+<li><strong>动画</strong>：</li>
+</ol>
+<ul>
+<li>动画值更新</li>
+<li>动画状态变化</li>
+</ul>
+<p><strong>关键</strong>：这些都是<strong>真正的 UI 变化</strong>，需要更新界面，因此应该请求 VSYNC。</p>
+<hr />
+<h2><strong>验证方法</strong></h2>
+<h3><strong>1. 性能分析工具验证</strong></h3>
+<p>使用 HarmonyOS Profiler 或类似工具：</p>
+<p><strong>验证指标</strong>：</p>
+<ul>
+<li><strong>VSYNC 信号</strong>：应该持续到达（这是正常的）</li>
+<li><strong>Composition 工作（C… 轨道）</strong>：</li>
+<li>有 UI 变化时：应该有活动</li>
+<li>没有 UI 变化时：应该为空</li>
+<li><strong>Handling 工作（H… 轨道）</strong>：</li>
+<li>有 UI 变化时：应该有活动</li>
+<li>没有 UI 变化时：应该为空（<strong>这是修复后的效果</strong>）</li>
+</ul>
+<p><strong>修复前</strong>：</p>
+<ul>
+<li>即使没有 UI 变化，轨道在每个 VSYNC 时都有活动</li>
+<li>形成”空跑”模式</li>
+</ul>
+<p><strong>修复后</strong>：</p>
+<ul>
+<li>没有 UI 变化时UI轨道应该为空</li>
+<li>只有在 <code>invalidate()</code> 被调用时，UI轨道才有活动</li>
+</ul>
+<h3><strong>2. 日志验证</strong></h3>
+<p>添加日志来跟踪 VSYNC 请求和重绘触发：</p>
+<pre><code>// 在 invalidate() 中添加日志
+override fun invalidate() {
+println("[VSYNC] invalidate() called, requesting VSYNC")
+Canvas.requestComposeVsyncAndNotify(id.takeLast(1).toInt())
+frameController?.requireFrameCallback()
+}
+// 在 VSYNC 回调中添加日志
+static void OnNativeVsync(long long timestamp, void *data) {
+int32_t id = static_cast&lt;int32_t&gt;(reinterpret_cast&lt;intptr_t&gt;(data));
+OH_LOG_Print(LOG_APP, LOG_DEBUG, LOG_DOMAIN, "cmp",
+"OnNativeVsync: timestamp=%lld, id=%d", timestamp, id);
+if (id &gt;= 0) {
+RootRenderNodeManager::Instance().NotifyRedraw(id);
+}
+}</code></pre>
+<p><strong>预期结果</strong>：</p>
+<ul>
+<li>没有 UI 变化时：不应该看到 <code>invalidate()</code> 的日志</li>
+<li>有 UI 变化时：应该看到 <code>invalidate()</code> → <code>OnNativeVsync</code> → <code>NotifyRedraw</code> 的日志序列</li>
+</ul>
+<h3><strong>3. CPU 使用率验证</strong></h3>
+<p><strong>修复前</strong>：</p>
+<ul>
+<li>CPU 使用率持续较高（即使没有 UI 变化）</li>
+<li>因为每个 VSYNC 都在执行渲染处理</li>
+</ul>
+<p><strong>修复后</strong>：</p>
+<ul>
+<li>没有 UI 变化时：CPU 使用率应该明显降低</li>
+<li>有 UI 变化时：CPU 使用率正常（执行必要的渲染工作）</li>
+</ul>
+<h3><strong>4. 功耗验证</strong></h3>
+<p><strong>修复前</strong>：</p>
+<ul>
+<li>功耗持续较高（即使屏幕静止）</li>
+</ul>
+<p><strong>修复后</strong>：</p>
+<ul>
+<li>没有 UI 变化时：功耗应该明显降低</li>
+<li>有 UI 变化时：功耗正常</li>
+</ul>
+<hr />
+<h2><strong>性能优化效果</strong></h2>
+<h3><strong>预期改进</strong></h3>
+<ol>
+<li><strong>CPU 使用率降低</strong></li>
+</ol>
+<ul>
+<li>没有 UI 变化时，CPU 使用率应该降低</li>
+<li>避免了无意义的渲染处理</li>
+</ul>
+<ol>
+<li><strong>功耗降低</strong></li>
+</ol>
+<ul>
+<li>屏幕静止时，功耗应该降低</li>
+<li>减少了不必要的 GPU/CPU 工作</li>
+</ul>
+<ol>
+<li><strong>帧率稳定性提升</strong></li>
+</ol>
+<ul>
+<li>避免了不必要的渲染工作干扰</li>
+<li>帧率更加稳定</li>
+</ul>
+<ol>
+<li><strong>响应性提升</strong></li>
+</ol>
+<ul>
+<li>真正的 UI 变化时，响应更快</li>
+<li>因为系统资源没有被”空跑”消耗</li>
+</ul>
+<hr />
+<h2><strong>相关代码位置</strong></h2>
+<h3><strong>关键文件</strong></h3>
+<ol>
+<li><strong>CanvasNode.ets</strong></li>
+</ol>
+<ul>
+<li>路径：<code>compose/ui/ui-arkui/src/ohosArm64Main/cpp/compose/src/main/ets/compose/CanvasNode.ets</code></li>
+<li>变更：删除 <code>willDraw</code> 回调中的 <code>notifyRedraw()</code> 调用</li>
+</ul>
+<ol>
+<li><strong>ArkUIViewController.kt</strong></li>
+</ol>
+<ul>
+<li>路径：<code>compose/ui/ui/src/ohosArm64Main/kotlin/androidx/compose/ui/arkui/ArkUIViewController.kt</code></li>
+<li>变更：在 <code>invalidate()</code> 中使用 <code>requestComposeVsyncAndNotify()</code> 替代 <code>notifyRedraw()</code></li>
+</ul>
+<ol>
+<li><strong>RenderNodeImplC.cpp</strong></li>
+</ol>
+<ul>
+<li>路径：<code>OHRender/OHRender/src/oh/RenderNodeImplC.cpp</code></li>
+<li>相关：<code>RequestComposeVsyncAndNotify()</code> 和 <code>OnNativeVsync()</code> 的实现</li>
+</ul>
+<h3><strong>相关 API</strong></h3>
+<ol>
+<li><strong><code>willDraw</code></strong><strong> 回调</strong></li>
+</ol>
+<ul>
+<li>ArkUI 框架提供的绘制前回调</li>
+<li>在每次绘制前触发</li>
+</ul>
+<ol>
+<li><strong><code>notifyRedraw()</code></strong></li>
+</ol>
+<ul>
+<li>直接触发重绘（不等待 VSYNC）</li>
+<li>已废弃，应该使用 VSYNC 驱动的方式</li>
+</ul>
+<ol>
+<li><strong><code>requestComposeVsyncAndNotify()</code></strong></li>
+</ol>
+<ul>
+<li>请求 VSYNC，在 VSYNC 回调中触发重绘</li>
+<li>确保重绘与帧信号对齐</li>
+</ul>
+<ol>
+<li><strong><code>invalidate()</code></strong></li>
+</ol>
+<ul>
+<li>Compose 层通知需要更新的接口</li>
+<li>应该在真正需要更新时调用</li>
+</ul>
+<hr />
+<h2><strong>注意事项</strong></h2>
+<h3><strong>1. VSYNC 驱动的重绘机制</strong></h3>
+<p><strong>理解要点</strong>：</p>
+<ul>
+<li>VSYNC 信号是<strong>显示器的刷新信号</strong>，不是 UI 更新的信号</li>
+<li>UI 更新应该<strong>响应状态变化</strong>，而不是响应 VSYNC</li>
+<li>VSYNC 只是用来<strong>对齐渲染时机</strong>，确保渲染与显示同步</li>
+</ul>
+<p><strong>正确流程</strong>：</p>
+<pre><code>UI 状态变化 → invalidate() → 请求 VSYNC → VSYNC 到达 → 执行渲染</code></pre>
+<p><strong>错误流程</strong>：</p>
+<pre><code>VSYNC 到达 → willDraw → notifyRedraw() → 执行渲染（即使没有 UI 变化）</code></pre>
+<hr />
+<h2><strong>总结</strong></h2>
+<h3><strong>问题根因</strong></h3>
+<p><strong><code>CanvasNode.ets</code></strong><strong> 中的 </strong><strong><code>willDraw</code></strong><strong> 回调无条件调用 </strong><strong><code>notifyRedraw()</code></strong>，导致：</p>
+<ul>
+<li>每次 VSYNC 信号到达时都会触发重绘请求</li>
+<li>即使没有实际的 UI 变化，也会执行渲染处理</li>
+<li>形成”VSYNC 空跑”问题</li>
+</ul>
+<h3><strong>解决方案</strong></h3>
+<ol>
+<li><strong>删除 </strong><strong><code>willDraw</code></strong><strong> 回调中的 </strong><strong><code>notifyRedraw()</code></strong><strong> 调用</strong></li>
+</ol>
+<ul>
+<li>避免无条件触发重绘请求</li>
+<li>打破死循环</li>
+</ul>
+<ol>
+<li><strong>在 </strong><strong><code>invalidate()</code></strong><strong> 中按需请求 VSYNC</strong></li>
+</ol>
+<ul>
+<li>使用 <code>requestComposeVsyncAndNotify()</code> 替代 <code>notifyRedraw()</code></li>
+<li>确保重绘与 VSYNC 信号对齐</li>
+<li>只在真正需要更新时才请求 VSYNC</li>
+</ul>
+<hr /></div>
+      </section>
+  </main>
+  </div>
+
+  <div class="img-modal" id="img-modal" aria-hidden="true">
+    <div class="img-modal-backdrop"></div>
+    <div class="img-modal-toolbar">
+      <button type="button" id="img-zoom-out" title="缩小">-</button>
+      <button type="button" id="img-zoom-in" title="放大">+</button>
+      <button type="button" id="img-zoom-reset" title="重置">100%</button>
+      <span class="zoom-value" id="img-zoom-value">100%</span>
+      <button type="button" id="img-modal-close" title="关闭">关闭</button>
+    </div>
+    <div class="img-modal-image-wrap">
+      <img id="img-modal-img" alt="" />
+    </div>
+  </div>
+
+
+  <script>
+    (function () {
+      const root = document.getElementById('zoom-root');
+      if (!root) return;
+      const valueEl = document.getElementById('zoom-value');
+      const min = 0.6;
+      const max = 2.4;
+      const step = 0.1;
+      const key = "km_detail_zoom";
+      let scale = 1;
+
+      try {
+        const saved = parseFloat(localStorage.getItem(key) || "1");
+        if (!Number.isNaN(saved)) scale = saved;
+      } catch (_) {}
+
+      const clamp = (n) => Math.min(max, Math.max(min, n));
+
+      const apply = () => {
+        scale = clamp(scale);
+        if ("zoom" in root.style) {
+          root.style.zoom = String(scale);
+        } else {
+          root.style.transform = `scale(${scale})`;
+          root.style.transformOrigin = "top center";
+        }
+        if (valueEl) valueEl.textContent = `${Math.round(scale * 100)}%`;
+        try {
+          localStorage.setItem(key, String(scale));
+        } catch (_) {}
+      };
+
+      document.querySelectorAll("[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-zoom");
+          if (action === "in") scale += step;
+          if (action === "out") scale -= step;
+          if (action === "reset") scale = 1;
+          apply();
+        });
+      });
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (!(event.ctrlKey || event.metaKey)) return;
+          if (document.body.classList.contains("img-modal-open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+
+      apply();
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const modal = document.getElementById("img-modal");
+      if (!modal) return;
+      const image = document.getElementById("img-modal-img");
+      const imageWrap = modal.querySelector(".img-modal-image-wrap");
+      const closeBtn = document.getElementById("img-modal-close");
+      const zoomOutBtn = document.getElementById("img-zoom-out");
+      const zoomInBtn = document.getElementById("img-zoom-in");
+      const zoomResetBtn = document.getElementById("img-zoom-reset");
+      const zoomValue = document.getElementById("img-zoom-value");
+      if (!image || !imageWrap) return;
+
+      let scale = 1;
+      const min = 0.2;
+      const max = 6;
+      const step = 0.15;
+      let isDragging = false;
+      let dragPointerId = null;
+      let lastX = 0;
+      let lastY = 0;
+
+      const apply = () => {
+        scale = Math.min(max, Math.max(min, scale));
+        image.style.transform = `scale(${scale})`;
+        if (zoomValue) zoomValue.textContent = `${Math.round(scale * 100)}%`;
+      };
+
+      const open = (src, alt) => {
+        image.src = src;
+        image.alt = alt || "";
+        scale = 1;
+        apply();
+        imageWrap.scrollLeft = 0;
+        imageWrap.scrollTop = 0;
+        modal.classList.add("open");
+        document.body.classList.add("img-modal-open");
+        document.body.style.overflow = "hidden";
+      };
+
+      const stopDragging = () => {
+        isDragging = false;
+        dragPointerId = null;
+        imageWrap.classList.remove("dragging");
+      };
+
+      const close = () => {
+        stopDragging();
+        modal.classList.remove("open");
+        document.body.classList.remove("img-modal-open");
+        document.body.style.overflow = "";
+        image.removeAttribute("src");
+      };
+
+      document.querySelectorAll(".doc-figure img").forEach((img) => {
+        const figure = img.closest(".doc-figure");
+        const originSrc = img.getAttribute("data-origin-src") || img.src;
+
+        const markFailed = () => {
+          if (!figure) return;
+          figure.classList.add("img-load-failed");
+          const link = figure.querySelector(".img-open-link");
+          if (link && !link.getAttribute("href")) {
+            link.setAttribute("href", originSrc);
+          }
+        };
+
+        img.addEventListener("error", () => {
+          if (img.dataset.retriedNoQuery !== "1") {
+            const noQuery = originSrc.split("?")[0];
+            if (noQuery && noQuery !== originSrc) {
+              img.dataset.retriedNoQuery = "1";
+              img.src = noQuery;
+              return;
+            }
+          }
+          markFailed();
+        });
+
+        if (img.complete && img.naturalWidth === 0) {
+          markFailed();
+        }
+
+        img.addEventListener("click", () => {
+          if (img.naturalWidth > 0) {
+            open(img.currentSrc || img.src, img.alt);
+            return;
+          }
+          if (originSrc && originSrc !== "#") {
+            window.open(originSrc, "_blank", "noopener,noreferrer");
+          }
+        });
+      });
+
+      closeBtn?.addEventListener("click", close);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal || event.target.classList.contains("img-modal-backdrop")) {
+          close();
+        }
+      });
+
+      zoomInBtn?.addEventListener("click", () => { scale += step; apply(); });
+      zoomOutBtn?.addEventListener("click", () => { scale -= step; apply(); });
+      zoomResetBtn?.addEventListener("click", () => { scale = 1; apply(); });
+
+      imageWrap.addEventListener("pointerdown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.button !== 0) return;
+        isDragging = true;
+        dragPointerId = event.pointerId;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        imageWrap.classList.add("dragging");
+        imageWrap.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      });
+
+      imageWrap.addEventListener("pointermove", (event) => {
+        if (!isDragging || event.pointerId !== dragPointerId) return;
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        imageWrap.scrollLeft -= dx;
+        imageWrap.scrollTop -= dy;
+        lastX = event.clientX;
+        lastY = event.clientY;
+      });
+
+      const onPointerDone = (event) => {
+        if (event.pointerId !== dragPointerId) return;
+        imageWrap.releasePointerCapture?.(event.pointerId);
+        stopDragging();
+      };
+
+      imageWrap.addEventListener("pointerup", onPointerDone);
+      imageWrap.addEventListener("pointercancel", onPointerDone);
+
+      modal.addEventListener(
+        "wheel",
+        (event) => {
+          if (!modal.classList.contains("open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.key === "Escape") {
+          close();
+        } else if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const roots = document.querySelectorAll(".content.rich");
+      if (!roots.length) return;
+
+      const h3Pattern = /^(?:[一二三四五六七八九十]+[、.．]|\d+[、.．)])\s*/;
+      const h4Pattern = /^\d+\.\d+\s*/;
+      const shortTitlePattern = /(?:流程|步骤|说明|配置|命令|目录|要求|概览)$/;
+      const bulletPattern = /^[-*•]\s+/;
+      const numberItemPattern = /^\d+[.)、]\s+/;
+
+      const commandPattern =
+        /^(?:\$\s*)?(?:export|git|ohpm|npm|pnpm|yarn|npx|python|python3|java|javac|gradle|\.\/gradlew|\.\/|adb|hdc|cmake|make|brew|curl|wget|source|chmod|chown|cp|mv|ls|cat|echo)\b/i;
+      const envAssignPattern = /^(?:[A-Z_][A-Z0-9_]*=|PATH=|JAVA_HOME=|ANDROID_HOME=)/;
+      const pathLikePattern = /(?:^\/|^\.\/|https?:\/\/|[\w.-]+\/[\w./-]+)/;
+
+      const esc = (value) => {
+        const span = document.createElement("span");
+        span.textContent = value;
+        return span.innerHTML;
+      };
+
+      const isCommandLike = (text) => {
+        const sample = text.trim();
+        if (!sample) return false;
+        if (sample.length > 220) return false;
+        if (commandPattern.test(sample)) return true;
+        if (envAssignPattern.test(sample)) return true;
+        if (sample.includes(" && ") || sample.includes(" || ")) return true;
+        if (pathLikePattern.test(sample) && /\b(?:build|publish|clone|install|run|export|gradle|script)\b/i.test(sample)) {
+          return true;
+        }
+        return false;
+      };
+
+      roots.forEach((root) => {
+        const children = Array.from(root.children);
+        const rebuilt = [];
+        let codeBuffer = [];
+
+        const flushCode = () => {
+          if (!codeBuffer.length) return;
+          const pre = document.createElement("pre");
+          pre.className = "auto-code";
+          const code = document.createElement("code");
+          code.textContent = codeBuffer.join("\n");
+          pre.appendChild(code);
+          rebuilt.push(pre);
+          codeBuffer = [];
+        };
+
+        children.forEach((node) => {
+          if (node.tagName !== "P") {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          const text = (node.textContent || "").replace(/\u00A0/g, " ").trim();
+          if (!text) return;
+
+          if (h3Pattern.test(text)) {
+            flushCode();
+            const h3 = document.createElement("h3");
+            h3.className = "auto-h3";
+            h3.textContent = text;
+            rebuilt.push(h3);
+            return;
+          }
+
+          if (h4Pattern.test(text) || (text.length <= 24 && shortTitlePattern.test(text))) {
+            flushCode();
+            const h4 = document.createElement("h4");
+            h4.className = "auto-h4";
+            h4.textContent = text;
+            rebuilt.push(h4);
+            return;
+          }
+
+          const keyValue = text.match(/^([^:：]{2,20}[：:])\s*(.+)$/);
+          if (keyValue) {
+            const key = keyValue[1].trim();
+            const value = keyValue[2].trim();
+            if (value && isCommandLike(value)) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><code>${esc(value)}</code>`;
+              rebuilt.push(row);
+              return;
+            }
+            if (value && value.length <= 120) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><span>${esc(value)}</span>`;
+              rebuilt.push(row);
+              return;
+            }
+          }
+
+          if (isCommandLike(text)) {
+            codeBuffer.push(text);
+            return;
+          }
+
+          if (bulletPattern.test(text) || numberItemPattern.test(text)) {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          flushCode();
+          rebuilt.push(node);
+        });
+
+        flushCode();
+        root.replaceChildren(...rebuilt);
+      });
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const back = document.getElementById("chapter-back-link");
+      if (!back) return;
+      const chapter = (new URLSearchParams(window.location.search).get("chapter") || "all").trim().toLowerCase();
+      if (!/^[a-z0-9-]+$/.test(chapter) || chapter === "all") {
+        back.href = "../knowledge-map-chapters.html";
+        return;
+      }
+      back.href = `../knowledge-map-chapters-${chapter}.html`;
+    })();
+  </script>
+</body>
+</html>

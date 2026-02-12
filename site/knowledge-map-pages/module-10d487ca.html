@@ -1,0 +1,1585 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>指令录制与绘制机制</title>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --ink: #10231c;
+      --muted: #4f6d66;
+      --accent: #0f7668;
+      --line: #d5e2de;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--ink); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 18px 42px; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .back { color: var(--accent); text-decoration: none; font-size: 14px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .chip { background: #dff1ec; color: var(--accent); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+    .section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; box-shadow: 0 8px 24px rgba(16,35,28,.05); }
+    .section-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .section-head h2 { margin: 0; font-size: 20px; }
+    .section-head span { color: var(--accent); font-size: 13px; }
+    .summary { color: #48665f; margin: 8px 0; font-size: 15px; line-height: 1.65; }
+    .points { margin: 0 0 8px; padding-left: 18px; color: #48665f; }
+    .points li { line-height: 1.65; }
+    .content { margin: 0; background: linear-gradient(180deg, #fbfefe 0%, #f7fbfa 100%); border: 1px solid var(--line); border-radius: 12px; padding: 14px; line-height: 1.7; font-size: 16px; color: #173029; }
+    .content h1, .content h2, .content h3, .content h4 { margin: 14px 0 8px; line-height: 1.35; color: #0f3028; }
+    .content h1:first-child, .content h2:first-child, .content h3:first-child, .content h4:first-child { margin-top: 0; }
+    .content h2 { font-size: 24px; font-weight: 750; }
+    .content h3 { font-size: 20px; font-weight: 700; }
+    .content h4 { font-size: 17px; font-weight: 680; color: #1b4b40; }
+    .content .auto-h3 { border-left: 4px solid #78b6a7; padding-left: 10px; }
+    .content .auto-h4 { color: #205145; }
+    .content p { margin: 0 0 9px; color: #1e3b34; }
+    .content p:last-child { margin-bottom: 0; }
+    .content ul, .content ol { margin: 0 0 10px; padding-left: 20px; }
+    .content li + li { margin-top: 6px; }
+    .content.xmind-outline { background: linear-gradient(180deg, #f8fcfb 0%, #f2f8f6 100%); }
+    .content.xmind-outline ul, .content.xmind-outline ol {
+      list-style: none;
+      margin: 8px 0 0 0;
+      padding-left: 22px;
+      border-left: 1px solid #c7ddd6;
+    }
+    .content.xmind-outline > ul, .content.xmind-outline > ol {
+      border-left: none;
+      padding-left: 0;
+      margin-top: 0;
+    }
+    .content.xmind-outline li {
+      position: relative;
+      margin: 8px 0;
+      padding: 6px 10px;
+      background: #ffffff;
+      border: 1px solid #d6e7e2;
+      border-radius: 10px;
+      box-shadow: 0 1px 0 rgba(15, 87, 74, 0.06);
+    }
+    .content.xmind-outline li::before {
+      content: "";
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      width: 22px;
+      border-top: 1px solid #c7ddd6;
+      transform: translateY(-50%);
+    }
+    .content.xmind-outline > ul > li::before,
+    .content.xmind-outline > ol > li::before { display: none; }
+    .content.xmind-outline li > ul,
+    .content.xmind-outline li > ol { margin-top: 8px; }
+    .content blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid #99c6bb; background: #edf7f4; color: #375852; border-radius: 6px; }
+    .content hr { border: none; border-top: 1px dashed #b8d2cb; margin: 12px 0; }
+    .content a { color: #0b6d61; text-decoration: none; border-bottom: 1px dashed rgba(11,109,97,.35); }
+    .content a:hover { border-bottom-style: solid; }
+    .content code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+    .content :not(pre) > code { background: #e6f2ef; color: #0f5f54; border-radius: 6px; padding: 2px 6px; }
+    .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
+    .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
+    .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .content .kv-key { color: #1b5e50; font-weight: 700; }
+    .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
+    .doc-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    .doc-table th, .doc-table td { border: 1px solid #c8d8d3; padding: 8px; text-align: left; vertical-align: top; }
+    .doc-table th { background: #e8f4f0; }
+    .doc-figure { margin: 10px 0; }
+    .doc-figure img { max-width: 100%; height: auto; border: 1px solid #c8d8d3; border-radius: 8px; display: block; background: #f3f7f6; }
+    .doc-figure.xmind-figure { margin: 6px 0; }
+    .doc-figure.xmind-figure figcaption { margin-top: 8px; font-size: 13px; color: #496861; }
+    .doc-figure .img-fallback { display: none; margin-top: 6px; font-size: 12px; color: #496861; }
+    .doc-figure .img-fallback a { color: #0f7668; }
+    .doc-figure.img-load-failed .img-fallback { display: block; }
+
+    .view-controls { position: fixed; top: 12px; right: 12px; z-index: 3000; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border: 1px solid #d5e2de; border-radius: 999px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(16,35,28,.12); }
+    .view-controls button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
+    .view-controls button:hover { background: #e3f2ee; }
+    .view-controls .zoom-value { font-size: 12px; color: #3b5d56; min-width: 44px; text-align: center; }
+    .zoom-root { transform-origin: top center; }
+    
+
+    .doc-figure img { cursor: zoom-in; }
+    .img-modal { position: fixed; inset: 0; display: none; z-index: 4000; }
+    .img-modal.open { display: block; }
+    .img-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 18, .85); }
+    .img-modal-toolbar { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; gap: 6px; align-items: center; background: rgba(255,255,255,.95); border-radius: 999px; padding: 6px 8px; }
+    .img-modal-toolbar button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; }
+    .img-modal-toolbar .zoom-value { min-width: 44px; text-align: center; font-size: 12px; color: #3b5d56; }
+    .img-modal-image-wrap { position: absolute; inset: 64px 24px 24px; display: grid; place-items: center; overflow: auto; cursor: grab; user-select: none; touch-action: none; }
+    .img-modal-image-wrap.dragging { cursor: grabbing; }
+    .img-modal-image-wrap img { max-width: 100%; max-height: 100%; transform-origin: center center; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+    
+  </style>
+</head>
+<body>
+  
+  <div class="view-controls" aria-label="页面缩放工具">
+    <button type="button" data-zoom="out" title="缩小">-</button>
+    <button type="button" data-zoom="in" title="放大">+</button>
+    <button type="button" data-zoom="reset" title="重置">100%</button>
+    <span class="zoom-value" id="zoom-value">100%</span>
+  </div>
+
+  <div class="zoom-root" id="zoom-root">
+  <main class="wrap">
+    <div class="top">
+      <a class="back" href="../knowledge-map.html">返回入口</a>
+      <a class="back" id="chapter-back-link" href="../knowledge-map-chapters.html">返回章节列表</a>
+    </div>
+    <h1>指令录制与绘制机制</h1>
+    <div class="meta">
+      <span class="chip">CMP框架知识地图</span>
+      <span class="chip">90 分钟</span>
+      <span class="chip">principle-analysis/指令录制与绘制机制.docx</span>
+    </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>指令录制与绘制机制</h2>
+          <span>90 分钟</span>
+        </div>
+        <p class="summary">OHRender 融合渲染原理讲解文档 本文档详细讲解 CMP（Compose Multiplatform）对接 OHRender 实现 OHOS 统一 渲染方案中的指令录制...</p>
+        <ul class="points"><li>单次绘制操作的脏区更新（updateDrawBounds）</li><li>最终脏区的生成（getFinishDrawBounds）</li></ul>
+        <div class="content rich"><h1><strong>OHRender 融合渲染原理讲解文档</strong></h1>
+<p>本文档详细讲解 CMP（Compose Multiplatform）对接 OHRender 实现 OHOS 统一  渲染方案中的指令录制与绘制机制。</p>
+<hr />
+<h2><strong>第一部分：概述与背景</strong></h2>
+<h3><strong>1.1 什么是融合渲染</strong></h3>
+<p><strong>融合渲染</strong> 是指将 Compose Multiplatform 的绘制命令转换为 OHOS（OpenHarmony OS）原生渲染指令的技术方案。其核心目标是：</p>
+<ol>
+<li><strong>跨平台一致性</strong>：使用统一的 Compose UI 代码，在 OHOS 平台获得原生渲染性能</li>
+<li><strong>高性能</strong>：利用 OHOS 的 RenderService 进行硬件加速渲染</li>
+<li><strong>细粒度更新</strong>：支持按节点级别的脏区管理，避免全屏重绘</li>
+</ol>
+<h3><strong>1.2 技术架构总览</strong></h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│ Compose UI (Kotlin) │
+│ 声明式 UI 定义 @Composable │
+└────────────────────────────┬────────────────────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────────────────┐
+│ RenderNodeLayer (Kotlin) │
+│ 图层管理 + Picture 录制/缓存 │
+└────────────────────────────┬────────────────────────────────────┘
+│ JNI
+▼
+┌─────────────────────────────────────────────────────────────────┐
+│ SkPictureRecorder (C++) │
+│ 创建 Canvas + 录制绘制命令 + 生成 Picture │
+└────────────────────────────┬────────────────────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────────────────┐
+│ SkOHPicture + OHRenderNode (C++) │
+│ Picture/Node 模式决策 + 渲染节点树管理 │
+└────────────────────────────┬────────────────────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────────────────┐
+│ OHOS RenderService │
+│ 硬件加速渲染 │
+└─────────────────────────────────────────────────────────────────┘</code></pre>
+<hr />
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-1431f05b49.png" alt="指令录制与绘制机制 图示" /></figure>
+<h2><strong>第二部分：核心概念</strong></h2>
+<p>本部分按照<strong>依赖关系由底向上</strong>的顺序介绍 6 个核心类。</p>
+<h3><strong>2.1 OH_Drawing_RecordCmd（底层）</strong></h3>
+<p><strong>定位</strong>：OHOS 原生绘制命令的容器</p>
+<pre><code>// OHOS 系统提供的绘制命令录制 API
+OH_Drawing_RecordCmdUtils* recorder;
+OH_Drawing_Canvas* canvas;
+OH_Drawing_RecordCmd* recordCmd;
+​
+// 开始录制
+OH_Drawing_RecordCmdUtilsBeginRecording(recorder, width, height, &amp;canvas);
+​
+// 在 canvas 上执行绘制操作...
+​
+// 结束录制，获取命令
+OH_Drawing_RecordCmdUtilsFinishRecording(recorder, &amp;recordCmd);</code></pre>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>由 OHOS 系统管理生命周期</li>
+<li>可被多次回放执行</li>
+<li>支持嵌套回放（<code>OH_Drawing_CanvasDrawRecordCmdNesting</code>）</li>
+</ul>
+<h3><strong>2.2 OHRenderNode（渲染节点）</strong></h3>
+<p><strong>定位</strong>：渲染节点，管理绘制命令和节点树结构</p>
+<pre><code>class OHRenderNode {
+// === 标识 ===
+int fNodeId; // 节点唯一 ID
+// === 绘制区域 ===
+SkRect fNowFrame; // 当前帧边界（用于布局）
+SkRect fRealFrame; // 实际绘制边界（脏区）
+bool fNoLimitSize; // 是否无尺寸限制
+// === 绘制命令 ===
+OH_Drawing_RecordCmd* fPictureCmd; // 录制的绘制命令
+// === 节点树结构 ===
+std::shared_ptr&lt;OHRenderNode&gt; fParent; // 父节点
+std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fChildList; // 子节点列表
+// === 变换与状态 ===
+SkMatrix fFatherMatrix; // 相对父节点的变换矩阵
+bool fDrawInPicture; // 模式标志：true=Picture模式, false=Node模式
+bool fVisible; // 可见性
+};</code></pre>
+<p><strong>核心方法</strong>：</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>方法</th><th>作用</th></tr></thead><tbody><tr><td>pictureDraw()</td><td>Picture 模式下执行绘制</td></tr><tr><td>nodeDraw()</td><td>Node 模式下执行绘制</td></tr><tr><td>appendChild()</td><td>添加子节点</td></tr><tr><td>makeClone()</td><td>克隆节点（用于多实例场景）</td></tr></tbody></table></div>
+<h3><strong>2.3 SkCanvas（绘制接口）</strong></h3>
+<p><strong>定位</strong>：绘制命令的录制接口，是 Skia 绘制 API 与 OHOS OH_Drawing API 之间的<strong>核心桥接层</strong></p>
+<p><strong>核心职责</strong>：</p>
+<ol>
+<li><strong>命令转换</strong>：将 Skia 绘制调用转换为 OH_Drawing 调用</li>
+<li><strong>脏区跟踪</strong>：动态计算实际绘制边界，用于优化渲染</li>
+<li><strong>状态管理</strong>：管理变换矩阵、裁剪区域、画笔状态等</li>
+<li><strong>嵌套支持</strong>：支持 SubCanvas 机制处理嵌套 Layer</li>
+</ol>
+<pre><code>class SkCanvas {
+// === 底层画布 ===
+OH_Drawing_Canvas*; // OHOS 原生画布（实际执行绘制）
+// === 关联节点 ===
+OHRenderNode* fOHNode; // 当前关联的渲染节点
+// === 变换状态 ===
+SkMatrix fInitMatrix; // 初始变换矩阵
+SkMatrix fTotalMatrix; // 累积变换矩阵
+std::vector&lt;SkMatrix&gt; fMatrixStack; // 矩阵栈（save/restore）
+// === 裁剪状态 ===
+SkRect fClipBounds; // 当前裁剪边界
+std::vector&lt;SkRect&gt; fClipStack; // 裁剪栈
+// === 脏区跟踪 ===
+SkRect fRecordCull; // 录制时指定的边界
+SkRect fDrawBounds; // 实际绘制边界（动态计算）
+bool fHasDrawBounds; // 是否有有效绘制边界
+// === 子画布（嵌套录制） ===
+SkCanvas* fSubCanvas; // 子画布（嵌套 Layer 使用）
+SkPictureRecorder* fSubRecorder; // 子录制器
+std::vector&lt;sk_sp&lt;SkPicture&gt;&gt; fSubPics; // 已完成的子 Picture 列表
+// === 状态标志 ===
+bool fIsPlayingBack; // 是否正在回放子 Picture
+bool fForceDrawInPicture; // 是否强制 Picture 模式
+int fSaveLayerDepth; // SaveLayer 嵌套深度
+};</code></pre>
+<p><strong>核心方法</strong>：</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>方法</th><th>作用</th></tr></thead><tbody><tr><td>save() / restore()</td><td>保存/恢复画布状态（矩阵、裁剪）</td></tr><tr><td>translate()</td><td>平移变换</td></tr><tr><td>rotate()</td><td>旋转变换</td></tr><tr><td>scale()</td><td>缩放变换</td></tr><tr><td>concat()</td><td>连接变换矩阵</td></tr><tr><td>clipRect()</td><td>矩形裁剪</td></tr><tr><td>clipPath()</td><td>路径裁剪</td></tr><tr><td>drawRect()</td><td>绘制矩形</td></tr><tr><td>drawPath()</td><td>绘制路径</td></tr><tr><td>drawImage()</td><td>绘制图像</td></tr><tr><td>drawText()</td><td>绘制文本</td></tr><tr><td>drawPicture()</td><td>绘制 Picture（触发回放）</td></tr><tr><td>saveLayer()</td><td>创建离屏图层</td></tr><tr><td>beginSubCanvas()</td><td>创建子画布（嵌套录制）</td></tr><tr><td>finishSubCanvas()</td><td>完成子画布录制</td></tr><tr><td>getFinishDrawBounds()</td><td>获取最终脏区边界</td></tr><tr><td>getOHNode()</td><td>获取关联的 OHRenderNode</td></tr></tbody></table></div>
+<p><strong>绘制命令转换示例</strong>：</p>
+<pre><code>// 示例 1：绘制矩形
+void SkCanvas::drawRect(const SkRect&amp; rect, const SkPaint&amp; paint) {
+// 1. 转换画笔
+OH_Drawing_Brush* brush = paint.asBrush();
+OH_Drawing_Pen* pen = paint.asPen();
+// 2. 设置画笔到 OH_Drawing_Canvas
+if (brush) OH_Drawing_CanvasAttachBrush(fOHCanvas, brush);
+if (pen) OH_Drawing_CanvasAttachPen(fOHCanvas, pen);
+// 3. 转换矩形并绘制
+OH_Drawing_Rect* ohRect = toOHRect(rect);
+OH_Drawing_CanvasDrawRect(fOHCanvas, ohRect);
+// 4. 更新脏区边界
+updateDrawBounds(rect);
+// 5. 清理
+OH_Drawing_RectDestroy(ohRect);
+if (brush) OH_Drawing_CanvasDetachBrush(fOHCanvas);
+if (pen) OH_Drawing_CanvasDetachPen(fOHCanvas);
+}
+​
+// 示例 2：绘制路径
+void SkCanvas::drawPath(const SkPath&amp; path, const SkPaint&amp; paint) {
+OH_Drawing_Path* ohPath = path.toOHPath();
+OH_Drawing_CanvasDrawPath(fOHCanvas, ohPath);
+// 使用路径边界更新脏区
+updateDrawBounds(path.getBounds());
+}
+​
+// 示例 3：绘制图像
+void SkCanvas::drawImage(const sk_sp&lt;SkImage&gt;&amp; image, SkScalar x, SkScalar y,
+const SkPaint* paint) {
+OH_Drawing_Image* ohImage = image-&gt;toOHImage();
+OH_Drawing_CanvasDrawImage(fOHCanvas, ohImage, x, y, ...);
+// 计算图像绘制边界
+SkRect bounds = SkRect::MakeXYWH(x, y, image-&gt;width(), image-&gt;height());
+updateDrawBounds(bounds);
+}</code></pre>
+<p><strong>脏区跟踪机制</strong>：</p>
+<pre><code>// 每次绘制操作都会更新脏区
+void SkCanvas::updateDrawBounds(const SkRect&amp; bounds) {
+// 将绘制区域通过当前变换矩阵映射
+SkRect mappedBounds;
+fTotalMatrix.mapRect(&amp;mappedBounds, bounds);
+// 与裁剪区域求交
+if (!mappedBounds.intersect(fClipBounds)) {
+return; // 被完全裁剪，不影响脏区
+}
+// 合并到总脏区
+if (fHasDrawBounds) {
+fDrawBounds.join(mappedBounds);
+} else {
+fDrawBounds = mappedBounds;
+fHasDrawBounds = true;
+}
+}
+​
+// 获取最终脏区（录制结束时调用）
+std::optional&lt;SkRect&gt; SkCanvas::getFinishDrawBounds() {
+if (!fHasDrawBounds) {
+return std::nullopt; // 无绘制内容
+}
+// 反向映射到录制坐标系
+SkMatrix inverse;
+if (fInitMatrix.invert(&amp;inverse)) {
+SkRect result;
+inverse.mapRect(&amp;result, fDrawBounds);
+return result;
+}
+return fDrawBounds;
+}</code></pre>
+<p>脏区跟踪的核心原理是<strong>动态记录所有绘制操作实际影响的有效区域</strong>，通过结合变换矩阵、裁剪区域和区域合并策略，最终生成需要更新或处理的区域集合。以下是基于代码的具体实现逻辑解析：</p>
+<p><strong>1. 单次绘制操作的脏区更新（</strong><strong><code>updateDrawBounds</code></strong><strong>）</strong></p>
+<p>每次绘制操作（如画线、填充图形等）触发此函数，核心步骤如下：</p>
+<ul>
+<li><strong>变换映射</strong>：将绘制的原始边界 <code>bounds</code> 通过当前总变换矩阵 <code>fTotalMatrix</code> 映射到目标空间（例如画布可能经过平移、旋转、缩放等变换，需将绘制区域转换到实际生效的坐标系）。得到 <code>mappedBounds</code>。</li>
+<li><strong>裁剪过滤</strong>：将映射后的区域 <code>mappedBounds</code> 与当前画布的裁剪区域 <code>fClipBounds</code> 求交。若完全被裁剪（无交集），则此次绘制不影响脏区，直接返回；否则保留交集部分（即实际可见的绘制区域）。</li>
+<li><strong>合并脏区</strong>：将过滤后的有效区域合并到总脏区 <code>fDrawBounds</code> 中。若总脏区尚未初始化（<code>fHasDrawBounds</code> 为 <code>false</code>），则直接赋值；否则通过 <code>join</code> 操作合并两个区域（取并集）。</li>
+</ul>
+<p><strong>2. 最终脏区的生成（</strong><strong><code>getFinishDrawBounds</code></strong><strong>）</strong></p>
+<p>绘制操作全部完成后（如录制结束），调用此函数获取最终脏区：</p>
+<ul>
+<li><strong>无绘制内容判断</strong>：若总脏区未初始化（<code>fHasDrawBounds</code> 为 <code>false</code>），返回 <code>std::nullopt</code> 表示无有效绘制。</li>
+<li><strong>坐标系反向映射</strong>：由于脏区 <code>fDrawBounds</code> 是在经过初始矩阵 <code>fInitMatrix</code> 变换后的坐标系中记录的，需通过其逆矩阵 <code>inverse</code> 将脏区反向映射回原始录制坐标系（确保脏区与用户最初操作的坐标系一致）。若逆矩阵不存在（不可逆），则直接返回当前脏区。</li>
+</ul>
+<p><strong>关键设计思想</strong></p>
+<ul>
+<li><strong>变换感知</strong>：脏区始终跟踪“实际生效”的绘制区域，而非原始绘制指令的边界。例如，一个被缩放的圆形，其脏区会是缩放后的椭圆区域。</li>
+<li><strong>裁剪优化</strong>：仅保留被裁剪区域覆盖的部分，避免无效区域的冗余记录。</li>
+<li><strong>区域合并</strong>：通过逐步合并每次绘制的有效区域，最终得到所有需要处理的区域的并集（总脏区）。</li>
+<li><strong>坐标系一致性</strong>：最终脏区反向映射回原始坐标系，保证结果与用户视角一致，便于后续处理（如重绘、碰撞检测等）。</li>
+</ul>
+<p><strong>总结</strong></p>
+<p>脏区跟踪通过<strong>变换映射→裁剪过滤→区域合并</strong>的流程，动态维护所有绘制操作的实际有效区域，最终输出一个紧凑的、坐标对齐的区域集合，用于高效处理需要更新的内容（如界面重绘、离屏渲染等）。</p>
+<p><strong>状态保存与恢复</strong>：</p>
+<pre><code>void SkCanvas::save() {
+// 保存变换矩阵
+fMatrixStack.push_back(fTotalMatrix);
+// 保存裁剪区域
+fClipStack.push_back(fClipBounds);
+// 调用 OH_Drawing 保存
+OH_Drawing_CanvasSave(fOHCanvas);
+}
+​
+void SkCanvas::restore() {
+// 恢复变换矩阵
+if (!fMatrixStack.empty()) {
+fTotalMatrix = fMatrixStack.back();
+fMatrixStack.pop_back();
+}
+// 恢复裁剪区域
+if (!fClipStack.empty()) {
+fClipBounds = fClipStack.back();
+fClipStack.pop_back();
+}
+// 调用 OH_Drawing 恢复
+OH_Drawing_CanvasRestore(fOHCanvas);
+}</code></pre>
+<h3><strong>2.4 SkPicture / SkOHPicture（绘制命令容器）</strong></h3>
+<p><strong>定位</strong>：不可变的绘制命令容器，支持多次回放</p>
+<pre><code>class SkOHPicture final : public SkPicture {
+// === 边界信息 ===
+SkRect fCull; // 裁剪边界（脏区）
+bool fNoLimitDraw; // 无限制绘制标志
+// === 绘制命令 ===
+OHDrawingRecordCmdSPtr fOHRecordCmd; // OH 绘制命令（智能指针）
+// === 节点管理 ===
+std::shared_ptr&lt;OHRenderNode&gt; fOriginNode; // 原始节点
+mutable std::shared_ptr&lt;OHRenderNode&gt; fNowCacheNode;// 当前使用的节点
+// 克隆节点缓存
+mutable std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fCacheCloneNodes;
+// 未使用节点池
+mutable std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fUnusedCloneNodes;
+// === 状态标志 ===
+mutable bool fPlaybackInNode; // 是否在 Node 模式回放
+bool fCanPlaybackInPicture; // 是否可以在 Picture 模式回放
+// === 子 Picture ===
+std::vector&lt;sk_sp&lt;SkPicture&gt;&gt; fSubPics; // 嵌套的子 Picture
+};</code></pre>
+<p><strong>核心方法</strong>：</p>
+<pre><code>// 回放方法 - 核心决策逻辑所在
+void playback(SkCanvas* canvas, AbortCallback* callback) const override;</code></pre>
+<h3><strong>2.5 SkPictureRecorder（命令录制器）</strong></h3>
+<p><strong>定位</strong>：管理 Canvas 和 OHRenderNode 的创建，生成 SkOHPicture</p>
+<pre><code>class SkPictureRecorder {
+// === 录制器 ===
+OH_Drawing_RecordCmdUtils* fOHRecorder; // OHOS 录制工具
+// === 当前录制状态 ===
+SkCanvas* fRecordCanvas; // 当前录制用的 Canvas
+bool fActivelyRecording; // 是否正在录制
+SkRect fCullRect; // 录制边界
+// === 节点管理 ===
+std::shared_ptr&lt;OHRenderNode&gt; fNowOHNode; // 当前关联的节点
+};</code></pre>
+<p><strong>核心 API</strong>：</p>
+<pre><code>// 开始录制，返回可用于绘制的 Canvas
+SkCanvas* beginRecording(const SkRect&amp; bounds);
+​
+// 结束录制，生成 Picture
+sk_sp&lt;SkPicture&gt; finishRecordingAsPicture();</code></pre>
+<h3><strong>2.6 OwnedLayer / RenderNodeLayer（Compose 图层）</strong></h3>
+<p><strong>定位</strong>：Compose UI 层的<strong>图层抽象</strong>，管理变换、裁剪、透明度等属性</p>
+<pre><code>internal class RenderNodeLayer(
+private var density: Density,
+private val invalidateParentLayer: () -&gt; Unit,
+private val drawBlock: (Canvas) -&gt; Unit,
+private val onDestroy: () -&gt; Unit = {}
+) : OwnedLayer {
+// === Picture 录制 ===
+private val pictureRecorder = PictureRecorder()
+private var picture: Picture? = null // 缓存的 Picture
+// === 图层属性 ===
+internal val matrix = Matrix() // 变换矩阵
+private var transformOrigin: TransformOrigin
+private var translationX/Y/Z: Float
+private var rotationX/Y/Z: Float
+private var scaleX/Y: Float
+private var alpha: Float // 透明度
+private var clip: Boolean // 裁剪开关
+private var shadowElevation: Float // 阴影高度
+// === 核心方法 ===
+override fun drawLayer(canvas: Canvas) { ... }
+override fun invalidate() { ... }
+}</code></pre>
+<h3><strong>2.7 核心概念关系图</strong></h3>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-d1b53e4ee8.png" alt="指令录制与绘制机制 图示" /></figure>
+<hr />
+<h2><strong>第三部分：对象关系</strong></h2>
+<h3><strong>3.1 数量关系概述</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>源对象</th><th>目标对象</th><th>关系</th><th>说明</th></tr></thead><tbody><tr><td>OwnedLayer</td><td>SkPictureRecorder</td><td>1:1</td><td>每个 Layer 持有一个 Recorder</td></tr><tr><td>OwnedLayer</td><td>SkOHPicture</td><td>1:0..1</td><td>缓存的 Picture，invalidate 时清空</td></tr><tr><td>SkOHPicture</td><td>OHRenderNode (Origin)</td><td>1:1</td><td>创建时关联的原始节点</td></tr><tr><td>SkOHPicture</td><td>OHRenderNode (Cache)</td><td>1:N</td><td>多次 Node 模式回放时创建克隆</td></tr><tr><td>OHRenderNode</td><td>OHRenderNode (Child)</td><td>1:N</td><td>父子节点树结构</td></tr></tbody></table></div>
+<h3><strong>3.2 类图</strong></h3>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-ec5ca256af.png" alt="指令录制与绘制机制 图示" /></figure>
+<p><strong>图例说明</strong>：</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>层级</th><th>语言</th><th>说明</th></tr></thead><tbody><tr><td>CMP 层</td><td>Kotlin</td><td>Compose Multiplatform 框架层，定义图层接口和绘制逻辑</td></tr><tr><td>Skiko 层</td><td>Kotlin</td><td>Skia Kotlin 绑定层，提供跨平台 Canvas/Picture API</td></tr><tr><td>OHRender 层</td><td>C++</td><td>OHOS 渲染适配层，实现 Skia API 到 OH_Drawing API 的转换</td></tr></tbody></table></div>
+<p><strong>跨层调用关系</strong>：</p>
+<pre><code>RenderNodeLayer (Kotlin)
+│
+│ 持有 Skiko 对象
+▼
+PictureRecorder / Canvas / Picture (Skiko Kotlin)
+│
+│ JNI 调用
+▼
+SkPictureRecorder / SkCanvas / SkOHPicture (C++)
+│
+│ API 转换
+▼
+OH_Drawing_Canvas / OH_Drawing_RecordCmd (OHOS System)</code></pre>
+<h3><strong>3.3 一个 OwnedLayer 是否一定对应一个 OHRenderNode？</strong></h3>
+<p><strong>答案：是的，但不是简单的 1:1</strong></p>
+<p>每个 <code>OwnedLayer</code>（即 <code>RenderNodeLayer</code>）在录制时会：</p>
+<ol>
+<li>必定关联一个<strong>原始节点</strong>（<code>fOriginNode</code>）</li>
+<li>但在回放时可能创建<strong>多个克隆节点</strong></li>
+</ol>
+<pre><code>OwnedLayer
+└── SkOHPicture
+├── fOriginNode ─────────────────→ OHRenderNode #1 (原始)
+├── fCacheCloneNodes[0] ─────────→ OHRenderNode #2 (克隆)
+└── fCacheCloneNodes[1] ─────────→ OHRenderNode #3 (克隆)</code></pre>
+<h3><strong>3.4 是否会存在多个 OwnedLayer 绘制在同一个 OHRenderNode？</strong></h3>
+<p><strong>答案：会的，在 Picture 模式下</strong></p>
+<p>当子 Layer 选择 <strong>Picture 模式</strong> 回放时，其绘制命令会被聚合到父节点的 <code>OH_Drawing_RecordCmd</code> 中：</p>
+<pre><code>Layer A (父)
+│
+├── 自身绘制命令
+│
+└── Layer B (子, Picture 模式)
+│
+└── 绘制命令 ──聚合──→ Layer A 的 OHRenderNode</code></pre>
+<p><strong>示意图</strong>：</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-3f084cf770.png" alt="指令录制与绘制机制 图示" /></figure>
+<hr />
+<h2><strong>第四部分：录制流程</strong></h2>
+<h3><strong>4.1 录制流程总览</strong></h3>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-3c9bc24c36.png" alt="指令录制与绘制机制 图示" /></figure>
+<h3><strong>4.2 录制入口：</strong><strong><code>RenderNodeLayer.drawLayer()</code></strong></h3>
+<pre><code>// 文件: RenderNodeLayer.skiko.kt
+​
+override fun drawLayer(canvas: Canvas) {
+// 🎯 步骤 1：检查缓存
+if (picture == null) {
+val bounds = size.toSize().toRect()
+// 🎯 步骤 2：开始录制
+// 使用极大边界，实际脏区由 C++ 层计算
+val pictureCanvas = pictureRecorder.beginRecording(
+org.jetbrains.skia.Rect.makeLTRB(
+l = -(1 shl 30).toFloat(),
+t = -(1 shl 30).toFloat(),
+r = ((1 shl 30)-1).toFloat(),
+b = ((1 shl 30)-1).toFloat()
+)
+)
+// 🎯 步骤 3：执行绘制
+performDrawLayer(pictureCanvas.asComposeCanvas(), bounds)
+// 🎯 步骤 4：完成录制
+picture = pictureRecorder.finishRecordingAsPicture()
+}
+// 🎯 步骤 5：应用变换并绘制 Picture
+canvas.save()
+canvas.concat(matrix)
+canvas.translate(position.x.toFloat(), position.y.toFloat())
+canvas.nativeCanvas.drawPicture(picture!!, null, null)
+canvas.restore()
+}</code></pre>
+<h3><strong>4.3 Canvas 创建：</strong><strong><code>beginRecording()</code></strong></h3>
+<pre><code>// 文件: SkPictureRecorder.cpp
+​
+SkCanvas* SkPictureRecorder::beginRecording(const SkRect&amp; userCullRect,
+sk_sp&lt;SkBBoxHierarchy&gt; bbh) {
+const SkRect cullRect = userCullRect.isEmpty() ? SkRect::MakeEmpty() : userCullRect;
+// 防止重复录制
+if (fRecordCanvas) {
+return nullptr;
+}
+// 🎯 步骤 1：开始 OH_Drawing 录制
+OH_Drawing_Canvas *ohCanvas = nullptr;
+OH_Drawing_RecordCmdUtilsBeginRecording(fOHRecorder,
+ullRect.width(),
+cullRect.height(),
+&amp;ohCanvas);
+if (!ohCanvas) {
+return nullptr;
+}
+​
+// 🎯 步骤 2：创建或复用 OHRenderNode
+if (fNowOHNode == nullptr || fNowOHNode-&gt;getPicture() != nullptr) {
+fNowOHNode = OHRenderNode::CreateNormalNode();
+}
+// 🎯 步骤 3：创建 SkCanvas（包装 OH_Drawing_Canvas）
+fRecordCanvas = new SkCanvas(ohCanvas, fNowOHNode.get());
+fRecordCanvas-&gt;setRecordCull(cullRect);
+// ... 更多初始化 ...
+fActivelyRecording = true;
+return fRecordCanvas;
+}</code></pre>
+<h3><strong>4.4 命令转换示例</strong></h3>
+<pre><code>// 文件: SkCanvas.cpp
+​
+void SkCanvas::drawRect(const SkRect&amp; rect, const SkPaint&amp; paint) {
+// 获取 OH_Drawing 画笔
+OH_Drawing_Brush* brush = paint.asBrush();
+OH_Drawing_Pen* pen = paint.asPen();
+// 设置画笔
+if (brush) OH_Drawing_CanvasAttachBrush(fOHCanvas, brush);
+if (pen) OH_Drawing_CanvasAttachPen(fOHCanvas, pen);
+// 转换为 OH_Drawing 命令
+OH_Drawing_Rect* ohRect = OH_Drawing_RectCreate();
+OH_Drawing_RectSetLeft(ohRect, rect.fLeft);
+OH_Drawing_RectSetTop(ohRect, rect.fTop);
+OH_Drawing_RectSetRight(ohRect, rect.fRight);
+OH_Drawing_RectSetBottom(ohRect, rect.fBottom);
+// 执行绘制
+OH_Drawing_CanvasDrawRect(fOHCanvas, ohRect);
+// 🎯 更新脏区边界
+updateDrawBounds(rect);
+// 清理
+OH_Drawing_RectDestroy(ohRect);
+if (brush) OH_Drawing_CanvasDetachBrush(fOHCanvas);
+if (pen) OH_Drawing_CanvasDetachPen(fOHCanvas);
+}</code></pre>
+<h3><strong>4.5 脏区计算：</strong><strong><code>getFinishDrawBounds()</code></strong></h3>
+<pre><code>// 文件: SkCanvas.cpp
+std::optional&lt;SkRect&gt; SkCanvas::getFinishDrawBounds() {
+if (!fHasDrawBounds) {
+return std::nullopt; // 无绘制内容
+}
+// 应用录制时的变换矩阵，将脏区映射到正确坐标系
+SkMatrix inverse;
+if (fInitMatrix.invert(&amp;inverse)) {
+SkRect mappedBounds;
+inverse.mapRect(&amp;mappedBounds, fDrawBounds);
+return mappedBounds;
+}
+return fDrawBounds;
+}</code></pre>
+<h3><strong>4.6 Picture 生成：finishRecordingAsPicture()</strong></h3>
+<pre><code>// 文件: SkPictureRecorder.cpp
+sk_sp&lt;SkPicture&gt; SkPictureRecorder::finishRecordingAsPicture() {
+fActivelyRecording = false;
+if (!fRecordCanvas) {
+return nullptr;
+}
+// 🎯 步骤 1：处理子 Canvas（嵌套录制场景）
+if (fRecordCanvas-&gt;fSubCanvas) {
+fRecordCanvas-&gt;finishSubCanvas();
+}
+if (fNowOHNode) {
+fNowOHNode-&gt;finishChildAdd();
+}
+// 🎯 步骤 2：获取脏区边界
+OH_Drawing_RecordCmd* recordCmd = nullptr;
+auto paintArea = fRecordCanvas-&gt;getFinishDrawBounds();
+bool noLimitDraw = false;
+if (paintArea.has_value()) {
+// 有明确绘制边界
+if (fNowOHNode) {
+fNowOHNode-&gt;setRealFrame(paintArea.value(), false);
+}
+fCullRect = paintArea.value();
+} else {
+// 无限制绘制（可能是无绘制内容或全屏绘制）
+auto noLimitRect = SkRect::MakeWH(NODE_SIZE_ALIGNMENT, NODE_SIZE_ALIGNMENT);
+if (fNowOHNode) {
+fNowOHNode-&gt;setRealFrame(noLimitRect, true);
+}
+noLimitDraw = true;
+}
+// 🎯 步骤 3：完成 OH_Drawing 录制
+OH_Drawing_RecordCmdUtilsFinishRecording(fOHRecorder, &amp;recordCmd);
+// 🎯 步骤 4：收集子 Picture
+auto subPics = fRecordCanvas-&gt;takeSubPics();
+// 🎯 步骤 5：计算内容哈希（用于缓存复用）
+uint64_t pictureHash = calculateHash();
+// 🎯 步骤 6：创建 SkOHPicture
+return sk_make_sp&lt;SkOHPicture&gt;(
+fCullRect, // 脏区边界
+noLimitDraw, // 无限制绘制标志
+recordCmd, // OH 绘制命令
+fNowOHNode, // 关联节点
+std::move(subPics), // 子 Picture 列表
+cost, // 绘制成本
+fDisableRecycleNode, // 禁用节点回收
+pictureHash // 内容哈希
+);
+}</code></pre>
+<hr />
+<h2><strong>第五部分：回放流程与模式决策</strong></h2>
+<h3><strong>5.1 两种模式对比</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>特性</th><th>Picture 模式</th><th>Node 模式</th></tr></thead><tbody><tr><td>渲染方式</td><td>直接在 Canvas 上执行命令</td><td>独立 RenderNode 挂载</td></tr><tr><td>脏区管理</td><td>父节点统一管理</td><td>独立脏区</td></tr><tr><td>变换支持</td><td>继承父节点变换</td><td>独立变换矩阵</td></tr><tr><td>内存占用</td><td>较低</td><td>较高（节点对象开销）</td></tr><tr><td>适用场景</td><td>静态/简单内容</td><td>动态/复杂/频繁变化</td></tr><tr><td>是否可逆</td><td>可回退到 Node</td><td>不可逆，一旦分裂无法聚合</td></tr></tbody></table></div>
+<h3><strong>5.2 模式决策流程图</strong></h3>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-821417061a.png" alt="指令录制与绘制机制 图示" /></figure>
+<h3><strong>5.3 回放核心代码：playback()</strong></h3>
+<pre><code>// 文件: SkPictureRecorder.cpp (SkOHPicture 类)
+void playback(SkCanvas* canvas, AbortCallback* callback) const override {
+// 获取父节点
+auto canvas_node = canvas-&gt;getOHNode();
+// === 模式决策 ===
+bool should_paint_in_picture = false;
+// 条件 1：无父节点或无原始节点
+if (!canvas_node || !fOriginNode) {
+should_paint_in_picture = true;
+}
+// 条件 2：强制 Picture 模式
+else if (canvas-&gt;isForceDrawInPicture()) {
+should_paint_in_picture = true;
+}
+// 条件 3：在 SaveLayer 中且支持嵌套命令
+else if (canvas-&gt;isInSaveLayer() &amp;&amp;
+OHDrawingAPI::support_OH_Drawing_CanvasDrawRecordCmdNesting) {
+should_paint_in_picture = true;
+}
+// 条件 4：无限制绘制且无子节点
+else if (fNoLimitDraw &amp;&amp; !fOriginNode-&gt;hasChildren()) {
+should_paint_in_picture = true;
+}
+// 条件 5：之前在 Picture 模式，检查是否需要转为 Node 模式
+else if (!fPlaybackInNode &amp;&amp; fCanPlaybackInPicture) {
+// 计算绘制区域与父节点的相交情况
+SkRect drawArea = calculateDrawArea(canvas);
+SkRect parentArea = canvas_node-&gt;getPaintArea();
+// 如果不相交，可以继续使用 Picture 模式
+if (!drawArea.intersects(parentArea)) {
+should_paint_in_picture = true;
+}
+}
+// === 执行回放 ===
+if (should_paint_in_picture) {
+// 🟢 Picture 模式：直接执行命令
+fNowCacheNode-&gt;pictureDraw(canvas-&gt;getOHCanvas(), true);
+fPlaybackInNode = false;
+} else {
+// 🟠 Node 模式：挂载独立节点
+if (!fNowCacheNode) {
+fNowCacheNode = generateNewNode();
+}
+// 设置父子关系
+fNowCacheNode-&gt;setParent(canvas_node);
+fNowCacheNode-&gt;updateFatherMatrix(canvas-&gt;getTotalMatrix());
+fNowCacheNode-&gt;setPaintArea(calculatePaintArea(canvas));
+// 挂载到父节点
+canvas_node-&gt;appendChild(fNowCacheNode);
+fPlaybackInNode = true;
+fNowCacheNode-&gt;setDrawInPicture(false); // 标记为 Node 模式
+}
+}</code></pre>
+<h3><strong>5.4 分帧分裂优化机制</strong></h3>
+<h4><strong>5.4.1 什么是分帧分裂？</strong></h4>
+<p>在 OHRender 中，当一个 Picture 从 <strong>Picture 模式</strong>切换到 <strong>Node 模式</strong>时，这个过程被称为"节点分裂"。为了避免一帧内创建大量节点导致的性能尖峰，OHRender 采用了<strong>分帧分裂</strong>策略：</p>
+<p><strong>核心思想</strong>：每帧<strong>尽可能</strong>只分裂一个节点，将节点创建的开销分散到多帧中，实现渐进式的节点树构建。</p>
+<p><strong>问题场景</strong>：</p>
+<pre><code>// 复杂嵌套结构
+Box(Modifier.graphicsLayer { /* Layer A */ }) {
+Column {
+// 100 个子元素，每个都有 graphicsLayer
+repeat(100) { i -&gt;
+Box(Modifier.graphicsLayer { /* Layer B-$i */ }) {
+Text("Item $i")
+}
+}
+}
+}</code></pre>
+<p><strong>问题</strong>：如果在<strong>一帧内</strong>将所有 100 个 Picture 都分裂成 Node，会导致：</p>
+<ul>
+<li>CPU 峰值：大量节点对象创建和内存分配</li>
+<li>帧时间超标：可能导致掉帧</li>
+<li>内存压力：瞬间分配大量节点对象</li>
+</ul>
+<p><strong>解决方案</strong>：使用 <code>needDelayChildAppend</code> 标志，控制节点分裂的速度。</p>
+<h4><strong>5.4.2 分帧分裂的工作原理</strong></h4>
+<p><strong>核心数据结构</strong>（<code>OHRenderNode</code>）：</p>
+<pre><code>class OHRenderNode {
+// === 子节点管理 ===
+std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fChildList; // 持久化存储
+std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fChildOrderList;// 本次录制的绘制顺序
+std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fChildAppend; // 本次新添加的子节点
+// === 分帧分裂控制标志 ===
+bool fNeedDelayChildAppend = true; // 本帧是否有新子节点插入
+};</code></pre>
+<p><strong>生命周期流程</strong>：</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-cc69342b91.png" alt="指令录制与绘制机制 图示" /></figure>
+<h4><strong>5.4.3 关键代码实现</strong></h4>
+<p><strong>步骤 1：录制开始，重置标志</strong></p>
+<pre><code>// 文件: OHRenderNode.cpp, L601-613
+​
+void OHRenderNode::restartChildAdd() {
+// 🎯 重置分帧分裂标志
+fNeedDelayChildAppend = false;
+// 清空本次录制的临时列表
+fChildOrderList.clear();
+fChildAppend.clear();
+}</code></pre>
+<p><strong>步骤 2：添加子节点，设置标志</strong></p>
+<pre><code>// 文件: OHRenderNode.cpp, L672-720
+​
+void OHRenderNode::appendChild(std::shared_ptr&lt;OHRenderNode&gt; child) {
+// ... 前置检查 ...
+// 🎯 记录到本次绘制顺序列表
+fChildOrderList.push_back(child);
+// 🎯 检查是否是新插入的子节点
+bool isNewChild =
+(std::find(fChildList.begin(),
+fChildList.end(),
+child) == fChildList.end());
+if (isNewChild) {
+// 🎯 记录到新增列表
+fChildAppend.push_back(child);
+// 🔥 设置标志：本帧有新子节点插入！
+fNeedDelayChildAppend = true;
+}
+}</code></pre>
+<p><strong>步骤 3：录制结束，重排序</strong></p>
+<pre><code>// 文件: OHRenderNode.cpp, L615-669
+​
+void OHRenderNode::finishChildAdd() {
+if (fChildOrderList.empty()) {
+return;
+}
+// 🎯 将新增节点合并到持久化列表
+for (auto&amp; newChild : fChildAppend) {
+fChildList.push_back(newChild);
+}
+// 🎯 根据本次绘制顺序重排子节点
+// （省略复杂的重排序逻辑...）
+}</code></pre>
+<p><strong>步骤 4：回放时检查标志，控制分裂</strong></p>
+<pre><code>// 文件: SkPictureRecorder.cpp, L230-242 (SkOHPicture::playback)
+​
+const auto refinePictureModeByHeuristics = [&amp;]() {
+if (should_paint_in_picture) {
+return; // 已经决定用 Picture 模式
+}
+if (!canvas_node || !fOriginNode || !fNowCacheNode) {
+return;
+}
+if (!fCanPlaybackInPicture || fPlaybackInNode ||
+!OHDrawingAPI::support_OH_Drawing_CanvasDrawRecordCmdNesting) {
+return;
+}
+​
+auto father_paint_area = canvas_node-&gt;getPaintChildArea();
+SkRect temp;
+const bool node_can_draw_in_father =
+(paint_area.has_value() &amp;&amp;
+father_paint_area.has_value() &amp;&amp;
+!(temp.intersect(father_paint_area.value(), paint_area.value()) &amp;&amp;
+temp.width() &gt; 0.1f &amp;&amp;
+temp.height() &gt; 0.1f));
+​
+const bool matrix_changed =
+fNowCacheNode-&gt;updateFatherMatrix(father_matrix);
+const bool record_delta_changed =
+(fOriginNode-&gt;updateDeltaChangedCnt(canvas_node-&gt;getRecordCnt()) &gt;= 3);
+const bool prefer_playback_in_node = (matrix_changed ||
+record_delta_changed ||
+canvas_node-&gt;getAllNodeChildrenNum() &gt; 0);
+​
+// 分帧分裂控制核心逻辑：
+// 当父节点本帧刚添加了新子节点时，我们正处于分帧分裂的过程中；
+// 子节点顺序仍在确定中，所以仅当新子节点不与其他绘制子节点重叠时，
+// 才回退到 Picture 模式（避免创建又一个节点）。
+if (!prefer_playback_in_node ||
+(node_can_draw_in_father &amp;&amp; canvas_node-&gt;needDelayChildAppend())) {
+should_paint_in_picture = true;
+}
+};</code></pre>
+<h4><strong>5.4.4 分帧分裂的执行流程图</strong></h4>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-19eade3b8a.png" alt="指令录制与绘制机制 图示" /></figure>
+<h4><strong>5.4.5 分帧分裂的效果对比</strong></h4>
+<p><strong>场景</strong>：父节点下有 10 个子 Picture，首次渲染时需要决策是否分裂。</p>
+<p><strong>无分帧分裂限制</strong>（假设所有条件都满足）：</p>
+<pre><code>帧 1:
+Picture 1 → Node 1 (分裂)
+Picture 2 → Node 2 (分裂)
+Picture 3 → Node 3 (分裂)
+...
+Picture 10 → Node 10 (分裂)
+结果: 一帧内创建 10 个节点，CPU 峰值！</code></pre>
+<p><strong>有分帧分裂控制</strong>：</p>
+<pre><code>帧 1:
+restartChildAdd() → fNeedDelayChildAppend = false
+Picture 1 → Node 1 (分裂) ✓
+└─ fNeedDelayChildAppend = true
+Picture 2 → Picture 模式 (因为 needDelayChildAppend = true)
+Picture 3 → Picture 模式 (因为 needDelayChildAppend = true)
+...
+Picture 10 → Picture 模式
+帧 2:
+restartChildAdd() → fNeedDelayChildAppend = false
+Picture 1 → 已分裂，直接挂载
+Picture 2 → Node 2 (分裂) ✓
+└─ fNeedDelayChildAppend = true
+Picture 3 → Picture 模式 (因为 needDelayChildAppend = true)
+...
+帧 3:
+Picture 3 → Node 3 (分裂) ✓
+...
+结果: 每帧只分裂 1 个节点，开销平滑！</code></pre>
+<p><strong>性能对比</strong>：</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>指标</th><th>无分帧分裂限制</th><th>有分帧分裂控制</th></tr></thead><tbody><tr><td>首帧 CPU 峰值</td><td>极高（创建 N 个节点）</td><td>低（创建 1 个节点）</td></tr><tr><td>首帧时间</td><td>可能掉帧（&gt;16.6ms）</td><td>正常（&lt;16.6ms）</td></tr><tr><td>完全分裂时间</td><td>1 帧</td><td>N 帧</td></tr><tr><td>用户体验</td><td>卡顿一下后流畅</td><td>始终流畅</td></tr><tr><td>内存分配曲线</td><td>尖峰</td><td>平滑上升</td></tr></tbody></table></div>
+<h4><strong>5.4.6 特殊情况：不重叠子节点的快速通道</strong></h4>
+<p>即使 <code>needDelayChildAppend = true</code>，如果新子节点与父节点的其他绘制子节点<strong>不重叠</strong>，也可以立即分裂：</p>
+<pre><code>// 核心判断逻辑
+const bool node_can_draw_in_father =
+(paint_area.has_value() &amp;&amp; father_paint_area.has_value() &amp;&amp;
+!(temp.intersect(father_paint_area.value(), paint_area.value()) &amp;&amp;
+temp.width() &gt; 0.1f &amp;&amp; temp.height() &gt; 0.1f));
+​
+// 如果不重叠，即使 needDelayChildAppend = true，也可以分裂
+if (!prefer_playback_in_node ||
+(node_can_draw_in_father &amp;&amp; canvas_node-&gt;needDelayChildAppend())) {
+should_paint_in_picture = true;
+} else {
+// Node 模式分裂
+}</code></pre>
+<h4><strong>5.4.7 命名讨论与改进建议</strong></h4>
+<p><strong>当前命名</strong>：<code>fNeedDelayChildAppend</code></p>
+<p><strong>问题</strong>：</p>
+<ul>
+<li>"Delay" 含义不明确，看起来像是延迟添加子节点</li>
+<li>没有体现"分帧分裂"的核心意图</li>
+</ul>
+<p><strong>建议命名</strong>：<code>fHasNewChildThisFrame</code> 或 <code>fChildOrderUnstable</code></p>
+<p><strong>原因</strong>：</p>
+<ul>
+<li>更直接地表达"本帧有新子节点"的语义</li>
+<li>强调子节点顺序尚未稳定，需要延迟其他节点的分裂</li>
+</ul>
+<p><strong>如果采用新命名，代码会更易读</strong>：</p>
+<pre><code>// 当前代码（语义模糊）
+if (!prefer_playback_in_node ||
+(node_can_draw_in_father &amp;&amp; canvas_node-&gt;needDelayChildAppend())) {
+should_paint_in_picture = true;
+}
+​
+// 改进后（语义清晰）
+if (!prefer_playback_in_node ||
+(node_can_draw_in_father &amp;&amp; canvas_node-&gt;hasNewChildThisFrame())) {
+should_paint_in_picture = true;
+}</code></pre>
+<h4><strong>5.4.8 总结</strong></h4>
+<p>分帧分裂机制是 OHRender 实现高性能渲染的关键优化：</p>
+<ol>
+<li><strong>问题</strong>：一帧内分裂大量节点导致性能尖峰</li>
+<li><strong>方案</strong>：使用 <code>needDelayChildAppend</code> 标志，每帧尽量只分裂一个节点</li>
+<li><strong>实现</strong>：</li>
+</ol>
+<ul>
+<li>录制开始时重置标志（<code>restartChildAdd</code>）</li>
+<li>添加子节点时设置标志（<code>appendChild</code>）</li>
+<li>回放时检查标志，控制分裂速度（<code>playback</code>）</li>
+<li>录制结束时合并新增节点（<code>finishChildAdd</code>）</li>
+</ul>
+<ol>
+<li><strong>效果</strong>：将节点创建开销分散到多帧，实现流畅的渲染体验</li>
+<li><strong>特殊情况</strong>：不重叠的子节点可以快速通道，立即分裂</li>
+</ol>
+<h3><strong>5.5 为什么节点分裂后无法聚合？</strong></h3>
+<p><strong>核心原因</strong>：一旦节点进入 Node 模式（<code>fDrawInPicture = false</code>），后续回放时会<strong>优先保持 Node 模式</strong>。</p>
+<p><strong>代码证据</strong>：</p>
+<pre><code>// 文件: OHRenderNode.h
+// 状态标志：初始为 true（尝试 Picture 模式）
+bool fDrawInPicture = true;
+// 判断是否在 Node 模式
+bool isInNode() { return !fDrawInPicture; }</code></pre>
+<pre><code>// 文件: SkPictureRecorder.cpp (SkOHPicture 构造函数)
+SkOHPicture(...) {
+// 构造时记录节点的初始模式状态
+fPlaybackInNode = node-&gt;isInNode();
+// 如果节点已经在 Node 模式，则不允许回退到 Picture 模式
+fCanPlaybackInPicture = !fPlaybackInNode;
+}</code></pre>
+<p><strong>不可逆的原因</strong>：</p>
+<ol>
+<li><strong>状态锁定</strong>：一旦 <code>fDrawInPicture = false</code>，<code>fCanPlaybackInPicture</code> 也会被设为 <code>false</code></li>
+<li><strong>子节点依赖</strong>：Node 模式下可能已创建子节点，回退会破坏节点树结构</li>
+<li><strong>设计意图</strong>：避免频繁的模式切换带来的性能抖动</li>
+</ol>
+<pre><code>时间轴:
+T1: Picture 模式 (fDrawInPicture = true)
+│
+▼ 触发条件满足，切换到 Node 模式
+T2: Node 模式 (fDrawInPicture = false)
+│
+╳ 无法回退！fCanPlaybackInPicture = false
+T3: Node 模式 (fDrawInPicture = false)
+│
+▼
+T4: Node 模式 (永久保持)</code></pre>
+<h3><strong>5.6 pictureDraw vs nodeDraw</strong></h3>
+<pre><code>// Picture 模式：直接执行绘制命令
+uint64_t OHRenderNode::pictureDraw(OH_Drawing_Canvas *canvas, bool needCache) {
+if (fPictureCmd) {
+// 使用缓存的命令树（如果有）
+if (fPictureTreeCmdCache) {
+OHDrawingAPI::OH_Drawing_CanvasDrawRecordCmdNesting(
+canvas, fPictureTreeCmdCache.get());
+return fPictureTreeHash;
+}
+// 执行自身命令
+OHDrawingAPI::OH_Drawing_CanvasDrawRecordCmdNesting(canvas,
+fPictureCmd.get());
+// 递归处理子节点
+for (auto&amp; child : fChildList) {
+if (child-&gt;fVisible) {
+OH_Drawing_CanvasSave(canvas);
+OH_Drawing_CanvasConcatMatrix(canvas, child-&gt;fFatherMatrix);
+child-&gt;pictureDraw(canvas, needCache);
+OH_Drawing_CanvasRestore(canvas);
+}
+}
+}
+return 0;
+}</code></pre>
+<pre><code>// Node 模式：通过 NodeImpl 执行绘制
+void OHRenderNode::nodeDraw(OH_Drawing_Canvas *oh_canvas) {
+if (fNodeImpl) {
+fNodeImpl-&gt;nodeDraw(oh_canvas, this);
+}
+}</code></pre>
+<hr />
+<h2><strong>第六部分：嵌套录制机制</strong></h2>
+<h3><strong>6.1 嵌套场景说明</strong></h3>
+<p>当 Compose UI 中存在嵌套的 <code>graphicsLayer</code> 时，会产生<strong>嵌套录制</strong>：</p>
+<pre><code>// Compose UI 嵌套结构示例
+Box(modifier = Modifier.graphicsLayer { /* Layer A */ }) {
+Text("Header")
+Box(modifier = Modifier.graphicsLayer { /* Layer B */ }) {
+Image(...)
+Box(modifier = Modifier.graphicsLayer { /* Layer C */ }) {
+Text("Content")
+}
+}
+Text("Footer")
+}</code></pre>
+<h3><strong>6.2 SubCanvas 机制</strong></h3>
+<p>OHRender 使用 <strong>SubCanvas（子画布）</strong> 机制处理嵌套录制：</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-c4f3156183.png" alt="指令录制与绘制机制 图示" /></figure>
+<h3><strong>6.3 关键代码：beginSubCanvas 和 finishSubCanvas</strong></h3>
+<pre><code>// 文件: SkCanvas.cpp
+// 创建子画布
+void SkCanvas::beginSubCanvas(const SkRect&amp; bounds) {
+// 保存当前状态
+save();
+// 创建子录制器
+fSubRecorder = new SkPictureRecorder();
+// 开始子录制
+fSubCanvas = fSubRecorder-&gt;beginRecording(bounds);
+// 传递当前变换矩阵到子画布
+fSubCanvas-&gt;concat(getTotalMatrix());
+}
+// 完成子画布录制
+void SkCanvas::finishSubCanvas() {
+// 1. 完成子录制，生成 Picture
+sk_sp&lt;SkPicture&gt; subPic = fSubRecorder-&gt;finishRecordingAsPicture();
+// 2. 保存到子 Picture 列表
+fSubPics.push_back(subPic);
+// 清理子画布
+fSubCanvas = nullptr;
+fSubRecorder = nullptr;
+// 🔥 3. 立即回放子 Picture！
+fIsPlayingBack = true;
+markSubPicPlayback(true);
+this-&gt;drawPicture(subPic); // ← 触发 playback()
+markSubPicPlayback(false);
+fIsPlayingBack = false;
+// 4. 恢复状态
+restore();
+}</code></pre>
+<h3><strong>6.4 嵌套录制的时序</strong></h3>
+<p><strong>关键点</strong>：子 Layer 的 Picture 在父 Layer 录制完成<strong>之前</strong>就已经回放完成。</p>
+<pre><code>时间轴:
+Layer A 录制
+┌─────────────────────────────────────────┐
+│ │
+T1 ──────▶│ beginRecording() │
+│ draw("Header") │
+│ │
+T2 ──────▶│ ┌─── Layer B 录制 ───────────────────┐ │
+│ │ beginRecording() │ │
+│ │ draw(Image) │ │
+│ │ finishRecording() → Picture B │ │
+T3 ──────▶│ │ │ │
+│ │ playback(Picture B) ← 立即回放！ │ │
+│ └────────────────────────────────────┘ │
+│ │
+T4 ──────▶│ draw("Footer") │
+│ finishRecording() → Picture A │
+└─────────────────────────────────────────┘</code></pre>
+<h3><strong>6.5 数据结构转化</strong></h3>
+<p>嵌套录制过程中，数据结构的转化关系：</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-597bf05f1b.png" alt="指令录制与绘制机制 图示" /></figure>
+<h3><strong>6.6 嵌套场景的模式决策</strong></h3>
+<p>在嵌套场景中，模式决策会<strong>逐层独立进行</strong>：</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-f316fbb35c.png" alt="指令录制与绘制机制 图示" /></figure>
+<hr />
+<h2><strong>第七部分：节点克隆与复用</strong></h2>
+<h3><strong>7.1 为什么需要节点克隆？</strong></h3>
+<p>在以下场景中，一个 Picture 可能需要多个 OHRenderNode：</p>
+<ol>
+<li><strong>过渡动画（Crossfade）</strong>：新旧内容同时显示</li>
+<li><strong>LazyList 复用</strong>：同一模板渲染多个 item</li>
+<li><strong>并发回放</strong>：多个线程同时回放同一 Picture</li>
+</ol>
+<h3><strong>7.2 节点管理结构</strong></h3>
+<pre><code>class SkOHPicture {
+// 原始节点（创建时关联）
+std::shared_ptr&lt;OHRenderNode&gt; fOriginNode;
+// 当前使用的节点（回放时动态获取）
+mutable std::shared_ptr&lt;OHRenderNode&gt; fNowCacheNode;
+// 所有克隆节点的缓存列表
+mutable std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fCacheCloneNodes;
+// 未使用的克隆节点列表（复用池）
+mutable std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fUnusedCloneNodes;
+};</code></pre>
+<h3><strong>7.3 节点获取逻辑：generateNewNode()</strong></h3>
+<pre><code>// 文件: SkPictureRecorder.cpp
+​
+std::shared_ptr&lt;OHRenderNode&gt; SkOHPicture::generateNewNode() const {
+// 🎯 优先级 1：从复用池获取
+if (!fUnusedCloneNodes.empty()) {
+auto node = fUnusedCloneNodes.front();
+fUnusedCloneNodes.pop_front();
+return node;
+}
+// 🎯 优先级 2：使用原始节点（如果未被使用）
+if (fOriginNode &amp;&amp; !fOriginNode-&gt;isInUse()) {
+fCacheCloneNodes.push_back(fOriginNode);
+return fOriginNode;
+}
+// 🎯 优先级 3：克隆新节点
+auto cloneNode = fOriginNode-&gt;makeClone();
+fCacheCloneNodes.push_back(cloneNode);
+return cloneNode;
+}</code></pre>
+<h3><strong>7.4 节点克隆实现：makeClone()</strong></h3>
+<pre><code>// 文件: OHRenderNode.cpp
+​
+std::shared_ptr&lt;OHRenderNode&gt; OHRenderNode::makeClone() {
+auto clone = std::make_shared&lt;OHRenderNode&gt;();
+// 复制关键属性
+clone-&gt;fRealFrame = this-&gt;fRealFrame;
+clone-&gt;fNoLimitSize = this-&gt;fNoLimitSize;
+// 共享绘制命令（只读，不需要复制）
+clone-&gt;fPictureCmd = this-&gt;fPictureCmd;
+// 递归克隆子节点
+for (auto&amp; child : fChildList) {
+auto childClone = child-&gt;makeClone();
+clone-&gt;appendChild(childClone);
+}
+return clone;
+}</code></pre>
+<h3><strong>7.5 节点生命周期管理</strong></h3>
+<figure class="doc-figure"><img src="../knowledge-map-assets/module-10d487ca-aaa1148c25.png" alt="指令录制与绘制机制 图示" /></figure>
+<h3><strong>7.6 实际场景示例：Crossfade 动画</strong></h3>
+<pre><code>// Crossfade 动画会同时显示新旧内容
+Crossfade(targetState = currentScreen) { screen -&gt;
+when (screen) {
+Screen.A -&gt; ScreenA() // 旧内容
+Screen.B -&gt; ScreenB() // 新内容
+}
+}</code></pre>
+<p><strong>回放时的节点分配</strong>：</p>
+<pre><code>帧 N (过渡中):
+Picture (ScreenA)
+│
+┌───────────────┼───────────────┐
+│ │ │
+fOriginNode fCacheClone[0] fCacheClone[1]
+(alpha=0.7) (不使用) (alpha=0.3)
+│ │
+▼ ▼
+旧内容显示 新内容显示</code></pre>
+<hr />
+<h2><strong>第八部分：关键代码位置索引</strong></h2>
+<h3><strong>8.1 Kotlin 层（Compose UI）</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>类/方法</th><th>文件路径</th><th>说明</th></tr></thead><tbody><tr><td>RenderNodeLayer</td><td>compose/ui/ui/src/skikoMain/kotlin/androidx/compose/ui/platform/RenderNodeLayer.skiko.kt</td><td>图层桥接类</td></tr><tr><td>drawLayer()</td><td>同上</td><td>图层绘制入口</td></tr><tr><td>performDrawLayer()</td><td>同上</td><td>执行绘制（阴影、裁剪、透明度）</td></tr><tr><td>invalidate()</td><td>同上</td><td>失效处理，清除缓存</td></tr></tbody></table></div>
+<h3><strong>8.2 C++ 层（OHRender）</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>类/方法</th><th>文件路径</th><th>说明</th></tr></thead><tbody><tr><td>SkPictureRecorder</td><td>OHRender/src/core/SkPictureRecorder.cpp</td><td>命令录制器</td></tr><tr><td>beginRecording()</td><td>同上</td><td>开始录制</td></tr><tr><td>finishRecordingAsPicture()</td><td>同上</td><td>完成录制</td></tr><tr><td>SkOHPicture</td><td>同上</td><td>Picture 容器</td></tr><tr><td>playback()</td><td>同上</td><td>回放与模式决策</td></tr><tr><td>generateNewNode()</td><td>同上</td><td>节点获取/克隆</td></tr><tr><td>SkCanvas</td><td>OHRender/src/core/SkCanvas.cpp</td><td>绘制接口</td></tr><tr><td>beginSubCanvas()</td><td>同上</td><td>创建子画布</td></tr><tr><td>finishSubCanvas()</td><td>同上</td><td>完成子画布</td></tr><tr><td>getFinishDrawBounds()</td><td>同上</td><td>获取脏区边界</td></tr><tr><td>OHRenderNode</td><td>OHRender/src/oh/OHRenderNode.cpp</td><td>渲染节点</td></tr><tr><td>pictureDraw()</td><td>同上</td><td>Picture 模式绘制</td></tr><tr><td>nodeDraw()</td><td>同上</td><td>Node 模式绘制</td></tr><tr><td>makeClone()</td><td>同上</td><td>节点克隆</td></tr><tr><td>appendChild()</td><td>同上</td><td>添加子节点</td></tr></tbody></table></div>
+<h3><strong>8.3 头文件</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>文件</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>SkPictureRecorder.h</td><td>OHRender/include/core/SkPictureRecorder.h</td><td>录制器头文件</td></tr><tr><td>SkCanvas.h</td><td>OHRender/include/core/SkCanvas.h</td><td>画布头文件</td></tr><tr><td>SkPicture.h</td><td>OHRender/include/core/SkPicture.h</td><td>Picture 头文件</td></tr><tr><td>OHRenderNode.h</td><td>OHRender/include/oh/OHRenderNode.h</td><td>节点头文件</td></tr></tbody></table></div>
+<h3><strong>8.4 ArkTS 层</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>类/方法</th><th>文件路径</th><th>说明</th></tr></thead><tbody><tr><td>CanvasNodeController</td><td>ui-arkui/src/ohosArm64Main/cpp/compose/src/main/ets/compose/CanvasNode.ets</td><td>Canvas 节点控制器</td></tr><tr><td>Compose 组件</td><td>同上</td><td>Compose 根组件</td></tr></tbody></table></div>
+<hr />
+<h2><strong>附录：核心数据结构速查</strong></h2>
+<h3><strong>RenderNodeLayer (Kotlin)</strong></h3>
+<pre><code>internal class RenderNodeLayer : OwnedLayer {
+private val pictureRecorder = PictureRecorder()
+private var picture: Picture? = null
+internal val matrix = Matrix()
+private var alpha: Float = 1f
+private var clip: Boolean = false
+private var shadowElevation: Float = 0f
+}</code></pre>
+<h3><strong>SkOHPicture (C++)</strong></h3>
+<pre><code>class SkOHPicture final : public SkPicture {
+SkRect fCull;
+bool fNoLimitDraw;
+bool fPlaybackInNode;
+bool fCanPlaybackInPicture;
+OHDrawingRecordCmdSPtr fOHRecordCmd;
+std::shared_ptr&lt;OHRenderNode&gt; fOriginNode;
+mutable std::shared_ptr&lt;OHRenderNode&gt; fNowCacheNode;
+mutable std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fCacheCloneNodes;
+std::vector&lt;sk_sp&lt;SkPicture&gt;&gt; fSubPics;
+};</code></pre>
+<h3><strong>OHRenderNode (C++)</strong></h3>
+<pre><code>class OHRenderNode {
+int fNodeId;
+SkRect fRealFrame;
+SkMatrix fFatherMatrix;
+OH_Drawing_RecordCmd* fPictureCmd;
+std::shared_ptr&lt;OHRenderNode&gt; fParent;
+std::list&lt;std::shared_ptr&lt;OHRenderNode&gt;&gt; fChildList;
+bool fDrawInPicture = true;
+bool fVisible = true;
+};</code></pre></div>
+      </section>
+  </main>
+  </div>
+
+  <div class="img-modal" id="img-modal" aria-hidden="true">
+    <div class="img-modal-backdrop"></div>
+    <div class="img-modal-toolbar">
+      <button type="button" id="img-zoom-out" title="缩小">-</button>
+      <button type="button" id="img-zoom-in" title="放大">+</button>
+      <button type="button" id="img-zoom-reset" title="重置">100%</button>
+      <span class="zoom-value" id="img-zoom-value">100%</span>
+      <button type="button" id="img-modal-close" title="关闭">关闭</button>
+    </div>
+    <div class="img-modal-image-wrap">
+      <img id="img-modal-img" alt="" />
+    </div>
+  </div>
+
+
+  <script>
+    (function () {
+      const root = document.getElementById('zoom-root');
+      if (!root) return;
+      const valueEl = document.getElementById('zoom-value');
+      const min = 0.6;
+      const max = 2.4;
+      const step = 0.1;
+      const key = "km_detail_zoom";
+      let scale = 1;
+
+      try {
+        const saved = parseFloat(localStorage.getItem(key) || "1");
+        if (!Number.isNaN(saved)) scale = saved;
+      } catch (_) {}
+
+      const clamp = (n) => Math.min(max, Math.max(min, n));
+
+      const apply = () => {
+        scale = clamp(scale);
+        if ("zoom" in root.style) {
+          root.style.zoom = String(scale);
+        } else {
+          root.style.transform = `scale(${scale})`;
+          root.style.transformOrigin = "top center";
+        }
+        if (valueEl) valueEl.textContent = `${Math.round(scale * 100)}%`;
+        try {
+          localStorage.setItem(key, String(scale));
+        } catch (_) {}
+      };
+
+      document.querySelectorAll("[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-zoom");
+          if (action === "in") scale += step;
+          if (action === "out") scale -= step;
+          if (action === "reset") scale = 1;
+          apply();
+        });
+      });
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (!(event.ctrlKey || event.metaKey)) return;
+          if (document.body.classList.contains("img-modal-open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+
+      apply();
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const modal = document.getElementById("img-modal");
+      if (!modal) return;
+      const image = document.getElementById("img-modal-img");
+      const imageWrap = modal.querySelector(".img-modal-image-wrap");
+      const closeBtn = document.getElementById("img-modal-close");
+      const zoomOutBtn = document.getElementById("img-zoom-out");
+      const zoomInBtn = document.getElementById("img-zoom-in");
+      const zoomResetBtn = document.getElementById("img-zoom-reset");
+      const zoomValue = document.getElementById("img-zoom-value");
+      if (!image || !imageWrap) return;
+
+      let scale = 1;
+      const min = 0.2;
+      const max = 6;
+      const step = 0.15;
+      let isDragging = false;
+      let dragPointerId = null;
+      let lastX = 0;
+      let lastY = 0;
+
+      const apply = () => {
+        scale = Math.min(max, Math.max(min, scale));
+        image.style.transform = `scale(${scale})`;
+        if (zoomValue) zoomValue.textContent = `${Math.round(scale * 100)}%`;
+      };
+
+      const open = (src, alt) => {
+        image.src = src;
+        image.alt = alt || "";
+        scale = 1;
+        apply();
+        imageWrap.scrollLeft = 0;
+        imageWrap.scrollTop = 0;
+        modal.classList.add("open");
+        document.body.classList.add("img-modal-open");
+        document.body.style.overflow = "hidden";
+      };
+
+      const stopDragging = () => {
+        isDragging = false;
+        dragPointerId = null;
+        imageWrap.classList.remove("dragging");
+      };
+
+      const close = () => {
+        stopDragging();
+        modal.classList.remove("open");
+        document.body.classList.remove("img-modal-open");
+        document.body.style.overflow = "";
+        image.removeAttribute("src");
+      };
+
+      document.querySelectorAll(".doc-figure img").forEach((img) => {
+        const figure = img.closest(".doc-figure");
+        const originSrc = img.getAttribute("data-origin-src") || img.src;
+
+        const markFailed = () => {
+          if (!figure) return;
+          figure.classList.add("img-load-failed");
+          const link = figure.querySelector(".img-open-link");
+          if (link && !link.getAttribute("href")) {
+            link.setAttribute("href", originSrc);
+          }
+        };
+
+        img.addEventListener("error", () => {
+          if (img.dataset.retriedNoQuery !== "1") {
+            const noQuery = originSrc.split("?")[0];
+            if (noQuery && noQuery !== originSrc) {
+              img.dataset.retriedNoQuery = "1";
+              img.src = noQuery;
+              return;
+            }
+          }
+          markFailed();
+        });
+
+        if (img.complete && img.naturalWidth === 0) {
+          markFailed();
+        }
+
+        img.addEventListener("click", () => {
+          if (img.naturalWidth > 0) {
+            open(img.currentSrc || img.src, img.alt);
+            return;
+          }
+          if (originSrc && originSrc !== "#") {
+            window.open(originSrc, "_blank", "noopener,noreferrer");
+          }
+        });
+      });
+
+      closeBtn?.addEventListener("click", close);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal || event.target.classList.contains("img-modal-backdrop")) {
+          close();
+        }
+      });
+
+      zoomInBtn?.addEventListener("click", () => { scale += step; apply(); });
+      zoomOutBtn?.addEventListener("click", () => { scale -= step; apply(); });
+      zoomResetBtn?.addEventListener("click", () => { scale = 1; apply(); });
+
+      imageWrap.addEventListener("pointerdown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.button !== 0) return;
+        isDragging = true;
+        dragPointerId = event.pointerId;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        imageWrap.classList.add("dragging");
+        imageWrap.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      });
+
+      imageWrap.addEventListener("pointermove", (event) => {
+        if (!isDragging || event.pointerId !== dragPointerId) return;
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        imageWrap.scrollLeft -= dx;
+        imageWrap.scrollTop -= dy;
+        lastX = event.clientX;
+        lastY = event.clientY;
+      });
+
+      const onPointerDone = (event) => {
+        if (event.pointerId !== dragPointerId) return;
+        imageWrap.releasePointerCapture?.(event.pointerId);
+        stopDragging();
+      };
+
+      imageWrap.addEventListener("pointerup", onPointerDone);
+      imageWrap.addEventListener("pointercancel", onPointerDone);
+
+      modal.addEventListener(
+        "wheel",
+        (event) => {
+          if (!modal.classList.contains("open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.key === "Escape") {
+          close();
+        } else if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const roots = document.querySelectorAll(".content.rich");
+      if (!roots.length) return;
+
+      const h3Pattern = /^(?:[一二三四五六七八九十]+[、.．]|\d+[、.．)])\s*/;
+      const h4Pattern = /^\d+\.\d+\s*/;
+      const shortTitlePattern = /(?:流程|步骤|说明|配置|命令|目录|要求|概览)$/;
+      const bulletPattern = /^[-*•]\s+/;
+      const numberItemPattern = /^\d+[.)、]\s+/;
+
+      const commandPattern =
+        /^(?:\$\s*)?(?:export|git|ohpm|npm|pnpm|yarn|npx|python|python3|java|javac|gradle|\.\/gradlew|\.\/|adb|hdc|cmake|make|brew|curl|wget|source|chmod|chown|cp|mv|ls|cat|echo)\b/i;
+      const envAssignPattern = /^(?:[A-Z_][A-Z0-9_]*=|PATH=|JAVA_HOME=|ANDROID_HOME=)/;
+      const pathLikePattern = /(?:^\/|^\.\/|https?:\/\/|[\w.-]+\/[\w./-]+)/;
+
+      const esc = (value) => {
+        const span = document.createElement("span");
+        span.textContent = value;
+        return span.innerHTML;
+      };
+
+      const isCommandLike = (text) => {
+        const sample = text.trim();
+        if (!sample) return false;
+        if (sample.length > 220) return false;
+        if (commandPattern.test(sample)) return true;
+        if (envAssignPattern.test(sample)) return true;
+        if (sample.includes(" && ") || sample.includes(" || ")) return true;
+        if (pathLikePattern.test(sample) && /\b(?:build|publish|clone|install|run|export|gradle|script)\b/i.test(sample)) {
+          return true;
+        }
+        return false;
+      };
+
+      roots.forEach((root) => {
+        const children = Array.from(root.children);
+        const rebuilt = [];
+        let codeBuffer = [];
+
+        const flushCode = () => {
+          if (!codeBuffer.length) return;
+          const pre = document.createElement("pre");
+          pre.className = "auto-code";
+          const code = document.createElement("code");
+          code.textContent = codeBuffer.join("\n");
+          pre.appendChild(code);
+          rebuilt.push(pre);
+          codeBuffer = [];
+        };
+
+        children.forEach((node) => {
+          if (node.tagName !== "P") {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          const text = (node.textContent || "").replace(/\u00A0/g, " ").trim();
+          if (!text) return;
+
+          if (h3Pattern.test(text)) {
+            flushCode();
+            const h3 = document.createElement("h3");
+            h3.className = "auto-h3";
+            h3.textContent = text;
+            rebuilt.push(h3);
+            return;
+          }
+
+          if (h4Pattern.test(text) || (text.length <= 24 && shortTitlePattern.test(text))) {
+            flushCode();
+            const h4 = document.createElement("h4");
+            h4.className = "auto-h4";
+            h4.textContent = text;
+            rebuilt.push(h4);
+            return;
+          }
+
+          const keyValue = text.match(/^([^:：]{2,20}[：:])\s*(.+)$/);
+          if (keyValue) {
+            const key = keyValue[1].trim();
+            const value = keyValue[2].trim();
+            if (value && isCommandLike(value)) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><code>${esc(value)}</code>`;
+              rebuilt.push(row);
+              return;
+            }
+            if (value && value.length <= 120) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><span>${esc(value)}</span>`;
+              rebuilt.push(row);
+              return;
+            }
+          }
+
+          if (isCommandLike(text)) {
+            codeBuffer.push(text);
+            return;
+          }
+
+          if (bulletPattern.test(text) || numberItemPattern.test(text)) {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          flushCode();
+          rebuilt.push(node);
+        });
+
+        flushCode();
+        root.replaceChildren(...rebuilt);
+      });
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const back = document.getElementById("chapter-back-link");
+      if (!back) return;
+      const chapter = (new URLSearchParams(window.location.search).get("chapter") || "all").trim().toLowerCase();
+      if (!/^[a-z0-9-]+$/.test(chapter) || chapter === "all") {
+        back.href = "../knowledge-map-chapters.html";
+        return;
+      }
+      back.href = `../knowledge-map-chapters-${chapter}.html`;
+    })();
+  </script>
+</body>
+</html>

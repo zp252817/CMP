@@ -1,0 +1,1461 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KMP工程集成鸿蒙应用完整教程</title>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --ink: #10231c;
+      --muted: #4f6d66;
+      --accent: #0f7668;
+      --line: #d5e2de;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--ink); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 18px 42px; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .back { color: var(--accent); text-decoration: none; font-size: 14px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .chip { background: #dff1ec; color: var(--accent); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+    .section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; box-shadow: 0 8px 24px rgba(16,35,28,.05); }
+    .section-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .section-head h2 { margin: 0; font-size: 20px; }
+    .section-head span { color: var(--accent); font-size: 13px; }
+    .summary { color: #48665f; margin: 8px 0; font-size: 15px; line-height: 1.65; }
+    .points { margin: 0 0 8px; padding-left: 18px; color: #48665f; }
+    .points li { line-height: 1.65; }
+    .content { margin: 0; background: linear-gradient(180deg, #fbfefe 0%, #f7fbfa 100%); border: 1px solid var(--line); border-radius: 12px; padding: 14px; line-height: 1.7; font-size: 16px; color: #173029; }
+    .content h1, .content h2, .content h3, .content h4 { margin: 14px 0 8px; line-height: 1.35; color: #0f3028; }
+    .content h1:first-child, .content h2:first-child, .content h3:first-child, .content h4:first-child { margin-top: 0; }
+    .content h2 { font-size: 24px; font-weight: 750; }
+    .content h3 { font-size: 20px; font-weight: 700; }
+    .content h4 { font-size: 17px; font-weight: 680; color: #1b4b40; }
+    .content .auto-h3 { border-left: 4px solid #78b6a7; padding-left: 10px; }
+    .content .auto-h4 { color: #205145; }
+    .content p { margin: 0 0 9px; color: #1e3b34; }
+    .content p:last-child { margin-bottom: 0; }
+    .content ul, .content ol { margin: 0 0 10px; padding-left: 20px; }
+    .content li + li { margin-top: 6px; }
+    .content.xmind-outline { background: linear-gradient(180deg, #f8fcfb 0%, #f2f8f6 100%); }
+    .content.xmind-outline ul, .content.xmind-outline ol {
+      list-style: none;
+      margin: 8px 0 0 0;
+      padding-left: 22px;
+      border-left: 1px solid #c7ddd6;
+    }
+    .content.xmind-outline > ul, .content.xmind-outline > ol {
+      border-left: none;
+      padding-left: 0;
+      margin-top: 0;
+    }
+    .content.xmind-outline li {
+      position: relative;
+      margin: 8px 0;
+      padding: 6px 10px;
+      background: #ffffff;
+      border: 1px solid #d6e7e2;
+      border-radius: 10px;
+      box-shadow: 0 1px 0 rgba(15, 87, 74, 0.06);
+    }
+    .content.xmind-outline li::before {
+      content: "";
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      width: 22px;
+      border-top: 1px solid #c7ddd6;
+      transform: translateY(-50%);
+    }
+    .content.xmind-outline > ul > li::before,
+    .content.xmind-outline > ol > li::before { display: none; }
+    .content.xmind-outline li > ul,
+    .content.xmind-outline li > ol { margin-top: 8px; }
+    .content blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid #99c6bb; background: #edf7f4; color: #375852; border-radius: 6px; }
+    .content hr { border: none; border-top: 1px dashed #b8d2cb; margin: 12px 0; }
+    .content a { color: #0b6d61; text-decoration: none; border-bottom: 1px dashed rgba(11,109,97,.35); }
+    .content a:hover { border-bottom-style: solid; }
+    .content code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+    .content :not(pre) > code { background: #e6f2ef; color: #0f5f54; border-radius: 6px; padding: 2px 6px; }
+    .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
+    .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
+    .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .content .kv-key { color: #1b5e50; font-weight: 700; }
+    .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
+    .doc-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    .doc-table th, .doc-table td { border: 1px solid #c8d8d3; padding: 8px; text-align: left; vertical-align: top; }
+    .doc-table th { background: #e8f4f0; }
+    .doc-figure { margin: 10px 0; }
+    .doc-figure img { max-width: 100%; height: auto; border: 1px solid #c8d8d3; border-radius: 8px; display: block; background: #f3f7f6; }
+    .doc-figure.xmind-figure { margin: 6px 0; }
+    .doc-figure.xmind-figure figcaption { margin-top: 8px; font-size: 13px; color: #496861; }
+    .doc-figure .img-fallback { display: none; margin-top: 6px; font-size: 12px; color: #496861; }
+    .doc-figure .img-fallback a { color: #0f7668; }
+    .doc-figure.img-load-failed .img-fallback { display: block; }
+
+    .view-controls { position: fixed; top: 12px; right: 12px; z-index: 3000; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border: 1px solid #d5e2de; border-radius: 999px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(16,35,28,.12); }
+    .view-controls button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
+    .view-controls button:hover { background: #e3f2ee; }
+    .view-controls .zoom-value { font-size: 12px; color: #3b5d56; min-width: 44px; text-align: center; }
+    .zoom-root { transform-origin: top center; }
+    
+
+    .doc-figure img { cursor: zoom-in; }
+    .img-modal { position: fixed; inset: 0; display: none; z-index: 4000; }
+    .img-modal.open { display: block; }
+    .img-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 18, .85); }
+    .img-modal-toolbar { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; gap: 6px; align-items: center; background: rgba(255,255,255,.95); border-radius: 999px; padding: 6px 8px; }
+    .img-modal-toolbar button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; }
+    .img-modal-toolbar .zoom-value { min-width: 44px; text-align: center; font-size: 12px; color: #3b5d56; }
+    .img-modal-image-wrap { position: absolute; inset: 64px 24px 24px; display: grid; place-items: center; overflow: auto; cursor: grab; user-select: none; touch-action: none; }
+    .img-modal-image-wrap.dragging { cursor: grabbing; }
+    .img-modal-image-wrap img { max-width: 100%; max-height: 100%; transform-origin: center center; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+    
+  </style>
+</head>
+<body>
+  
+  <div class="view-controls" aria-label="页面缩放工具">
+    <button type="button" data-zoom="out" title="缩小">-</button>
+    <button type="button" data-zoom="in" title="放大">+</button>
+    <button type="button" data-zoom="reset" title="重置">100%</button>
+    <span class="zoom-value" id="zoom-value">100%</span>
+  </div>
+
+  <div class="zoom-root" id="zoom-root">
+  <main class="wrap">
+    <div class="top">
+      <a class="back" href="../knowledge-map.html">返回入口</a>
+      <a class="back" id="chapter-back-link" href="../knowledge-map-chapters.html">返回章节列表</a>
+    </div>
+    <h1>KMP工程集成鸿蒙应用完整教程</h1>
+    <div class="meta">
+      <span class="chip">CMP框架知识地图</span>
+      <span class="chip">99 分钟</span>
+      <span class="chip">environment-setup/KMP工程集成鸿蒙应用完整教程.md</span>
+    </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>KMP工程集成鸿蒙应用完整教程</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">本教程将详细介绍如何从零开始创建一个Kotlin Multiplatform (KMP) 工程，并集成鸿蒙(HarmonyOS)应用。</p>
+        <ul class="points"><li>本教程将详细介绍如何从零开始创建一个Kotlin Multiplatform (KMP) 工程，并集成鸿蒙(HarmonyOS)应用。</li></ul>
+        <div class="content rich"><p>本教程将详细介绍如何从零开始创建一个Kotlin Multiplatform (KMP) 工程，并集成鸿蒙(HarmonyOS)应用。</p></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>1.1 环境要求</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">Android Studio (支持KMP的最新版本) DevEco Studio (用于鸿蒙应用开发) JDK 11 或更高版本 Kotlin 2.2.0-ohos-07...</p>
+        <ul class="points"><li>Android Studio (支持KMP的最新版本)</li><li>DevEco Studio (用于鸿蒙应用开发)</li><li>JDK 11 或更高版本</li><li>Kotlin 2.2.0-ohos-07 或兼容版本</li></ul>
+        <div class="content rich"><ul><li>Android Studio (支持KMP的最新版本)</li><li>DevEco Studio (用于鸿蒙应用开发)</li><li>JDK 11 或更高版本</li><li>Kotlin 2.2.0-ohos-07 或兼容版本</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>1.2 必要的依赖仓库</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">KMP鸿蒙支持仓库: https://kmp-ohos-test.obs.cn-south-1.myhuaweicloud.com/maven/ 腾讯Maven仓库: htt...</p>
+        <ul class="points"><li>KMP鸿蒙支持仓库: https://kmp-ohos-test.obs.cn-south-1.myhuaweicloud.com/maven/</li><li>腾讯Maven仓库: https://mirrors.tencent.com/nexus/repository/maven-tencent</li></ul>
+        <div class="content rich"><ul><li>KMP鸿蒙支持仓库: <code>https://kmp-ohos-test.obs.cn-south-1.myhuaweicloud.com/maven/</code></li><li>腾讯Maven仓库: <code>https://mirrors.tencent.com/nexus/repository/maven-tencent</code></li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>2.1 使用Android Studio创建KMP项目</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">新建工程入口.png 打开Android Studio 选择 **File** -&gt; **New** -&gt; **New Project** 选择 **Kotlin Multi...</p>
+        <ul class="points"><li>新建工程入口.png</li><li>打开Android Studio</li><li>选择 **File** -&gt; **New** -&gt; **New Project**</li><li>选择 **Kotlin Multiplatform** 模板</li></ul>
+        <div class="content rich"><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-3488ef63ac.png" alt="新建工程入口.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-3488ef63ac.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-3488ef63ac.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure><ol><li>打开Android Studio</li><li>选择 <strong>File</strong> -&gt; <strong>New</strong> -&gt; <strong>New Project</strong></li><li>选择 <strong>Kotlin Multiplatform</strong> 模板</li></ol><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-22531d041d.png" alt="选择KMP项目.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-22531d041d.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-22531d041d.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>2.2 配置工程基本信息</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">修改工程名和包名.png 配置项说明： **Name**: MyKMPApp (工程名称) **Package name**: com.example.mykmpapp (包...</p>
+        <ul class="points"><li>修改工程名和包名.png</li><li>配置项说明：</li><li>**Name**: MyKMPApp (工程名称)</li><li>**Package name**: com.example.mykmpapp (包名)</li></ul>
+        <div class="content rich"><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-7d9215a96c.png" alt="修改工程名和包名.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-7d9215a96c.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-7d9215a96c.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure><p>配置项说明：</p><ul><li><strong>Name</strong>: MyKMPApp (工程名称)</li><li><strong>Package name</strong>: com.example.mykmpapp (包名)</li><li><strong>Save location</strong>: 选择合适的保存位置</li></ul><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-575ace531d.png" alt="选择平台一般默认.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-575ace531d.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-575ace531d.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>2.3 选择目标平台</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">默认情况下会包含： Android iOS 注意：鸿蒙平台需要后续手动配置</p>
+        <ul class="points"><li>默认情况下会包含：</li><li>Android</li><li>iOS</li><li>注意：鸿蒙平台需要后续手动配置</li></ul>
+        <div class="content rich"><p>默认情况下会包含：</p><ul><li>Android</li><li>iOS</li></ul><blockquote><p>注意：鸿蒙平台需要后续手动配置</p></blockquote></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>3.1 配置Gradle依赖仓库</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">修改 settings.gradle.kts 文件，添加鸿蒙相关的Maven仓库： kotlin pluginManagement { repositories { mave...</p>
+        <ul class="points"><li>修改 settings.gradle.kts 文件，添加鸿蒙相关的Maven仓库：</li><li>kotlin</li><li>pluginManagement {</li><li>repositories {</li></ul>
+        <div class="content rich"><p>修改 <code>settings.gradle.kts</code> 文件，添加鸿蒙相关的Maven仓库：</p><pre><code class="language-kotlin">pluginManagement {
+    repositories {
+        maven("https://kmp-ohos-test.obs.cn-south-1.myhuaweicloud.com/maven/")
+        maven("https://mirrors.tencent.com/nexus/repository/maven-tencent")
+        google {
+            mavenContent {
+                includeGroupAndSubgroups("androidx")
+                includeGroupAndSubgroups("com.android")
+                includeGroupAndSubgroups("com.google")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        maven("https://kmp-ohos-test.obs.cn-south-1.myhuaweicloud.com/maven/")
+        maven("https://mirrors.tencent.com/nexus/repository/maven-tencent")
+        google {
+            mavenContent {
+                includeGroupAndSubgroups("androidx")
+                includeGroupAndSubgroups("com.android")
+                includeGroupAndSubgroups("com.google")
+            }
+        }
+        mavenCentral()
+    }
+}</code></pre></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>3.2 配置版本依赖</h2>
+          <span>4 分钟</span>
+        </div>
+        <p class="summary">修改 gradle/libs.versions.toml 文件，配置鸿蒙相关的版本。**关键配置**如下（其他AndroidX库使用默认配置即可）： toml [versio...</p>
+        <ul class="points"><li>修改 gradle/libs.versions.toml 文件，配置鸿蒙相关的版本。**关键配置**如下（其他AndroidX库使用默认配置即可）：</li><li>toml</li><li>[versions]</li><li>composeMultiplatform = &quot;1.6.1-ohos-003&quot;</li></ul>
+        <div class="content rich"><p>修改 <code>gradle/libs.versions.toml</code> 文件，配置鸿蒙相关的版本。<strong>关键配置</strong>如下（其他AndroidX库使用默认配置即可）：</p><pre><code class="language-toml">[versions]
+composeMultiplatform = "1.6.1-ohos-003"
+kotlin = "2.2.0-ohos-07"
+atomicFu = "0.23.2-KBA-001"
+kotlinx-coroutines = "1.8.0-KBA-001"
+
+[libraries]
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+compose-multiplatform-export = { module = "org.jetbrains.compose.export:export", version.ref = "composeMultiplatform" }
+atomicFu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicFu" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+
+[plugins]
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }</code></pre><p><strong>关键版本说明</strong>：</p><ul><li><code>kotlin = "2.2.0-ohos-07"</code>: 支持鸿蒙的Kotlin版本（<strong>必须使用此版本</strong>）</li><li><code>composeMultiplatform = "1.6.1-ohos-003"</code>: 支持鸿蒙的Compose Multiplatform版本（<strong>必须使用此版本</strong>）</li><li><code>atomicFu = "0.23.2-KBA-001"</code>: KMP原子操作库，用于跨平台原子性操作</li><li><code>kotlinx-coroutines = "1.8.0-KBA-001"</code>: 跨平台协程库</li><li>注意：<code>composeMultiplatform</code> 使用驼峰命名，在引用时使用 <code>version.ref = "composeMultiplatform"</code></li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>3.3 配置composeApp模块</h2>
+          <span>6 分钟</span>
+        </div>
+        <p class="summary">修改 composeApp/build.gradle.kts，添加鸿蒙平台配置： kotlin kotlin { androidTarget { compilerOption...</p>
+        <ul class="points"><li>修改 composeApp/build.gradle.kts，添加鸿蒙平台配置：</li><li>kotlin</li><li>kotlin {</li><li>androidTarget {</li></ul>
+        <div class="content rich"><p>修改 <code>composeApp/build.gradle.kts</code>，添加鸿蒙平台配置：</p><pre><code class="language-kotlin">kotlin {
+    androidTarget {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
+    }
+    
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget -&gt;
+        iosTarget.binaries.framework {
+            baseName = "ComposeApp"
+            isStatic = true
+        }
+    }
+
+    // 添加鸿蒙平台配置
+    ohosArm64 {
+        binaries.sharedLib {
+            baseName = "kn"
+            export(libs.compose.multiplatform.export)
+            linkerOpts(
+                "-lnative_drawing",
+                "-lpixelmap",
+                "-lpixelmap_ndk.z",
+                "-lace_napi.z",
+                "-lhilog_ndk.z",
+                "-limage_source",
+                "-lhitrace_ndk.z",
+                "-luv",
+                "-lnative_window",
+                "-lunwind",
+            )
+            // debug和release模式都打包带符号表的so
+            debuggable = true
+        }
+        compilations.all {
+            compilerOptions.configure {
+            }
+        }
+
+        // 配置cinterop用于访问鸿蒙资源
+        val main by compilations.getting
+        val resource by main.cinterops.creating {
+            defFile(file("src/ohosArm64Main/cinterop/resource.def"))
+            includeDirs(file("src/ohosArm64Main/cinterop/include"))
+        }
+    }
+    
+    sourceSets {
+        androidMain.dependencies {
+            implementation(compose.preview)
+            implementation(libs.androidx.activity.compose)
+        }
+        commonMain.dependencies {
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(compose.ui)
+            implementation(compose.components.resources)
+            implementation(compose.components.uiToolingPreview)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.atomicFu)
+        }
+
+        // 鸿蒙平台依赖
+        val ohosArm64Main by getting {
+            dependencies {
+                api(libs.compose.multiplatform.export)
+            }
+        }
+    }
+}
+
+// 配置自动发布任务
+arrayOf("debug", "release").forEach { type -&gt;
+    tasks.register&lt;Copy&gt;("publish${type.capitalizeUS()}BinariesToHarmonyApp") {
+        group = "harmony"
+        dependsOn("link${type.capitalizeUS()}SharedOhosArm64")
+        into(rootProject.file("harmonyApp"))
+        from("build/bin/ohosArm64/${type}Shared/libkn_api.h") {
+            into("entry/src/main/cpp/include/")
+        }
+        from(project.file("build/bin/ohosArm64/${type}Shared/libkn.so")) {
+            into("/entry/libs/arm64-v8a/")
+        }
+    }
+}</code></pre><p><strong>关键配置说明</strong>：</p><ul><li><code>ohosArm64</code>: 声明鸿蒙平台目标</li><li><code>sharedLib</code>: 生成共享库(.so文件)</li><li><code>baseName = "kn"</code>: 生成的so文件名为libkn.so</li><li><code>linkerOpts</code>: 链接鸿蒙NDK库</li><li><code>cinterops</code>: 配置C互操作，用于访问鸿蒙资源管理器</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>3.4 创建鸿蒙平台代码</h2>
+          <span>6 分钟</span>
+        </div>
+        <p class="summary">3.4.1 创建目录结构 composeApp/src/ohosArm64Main/ ├── cinterop/ │ ├── include/ │ │ ├── raw_fil...</p>
+        <ul class="points"><li>3.4.1 创建目录结构</li><li>composeApp/src/ohosArm64Main/</li><li>├── cinterop/</li><li>│ ├── include/</li></ul>
+        <div class="content rich"><h4>3.4.1 创建目录结构</h4><pre><code>composeApp/src/ohosArm64Main/
+├── cinterop/
+│   ├── include/
+│   │   ├── raw_file.h
+│   │   └── raw_file_manager.h
+│   └── resource.def
+└── kotlin/
+    └── com/example/mykmpapp/
+        ├── App.ohos.kt
+        ├── MainArkUIViewController.kt
+        └── Platform.ohos.kt</code></pre><h4>3.4.2 配置cinterop</h4><p>创建 <code>composeApp/src/ohosArm64Main/cinterop/resource.def</code>:</p><pre><code>package = platform.resource
+headers = raw_file_manager.h raw_file.h</code></pre><h4>3.4.3 实现平台特定代码</h4><p>创建 <code>composeApp/src/ohosArm64Main/kotlin/com/example/mykmpapp/Platform.ohos.kt</code>:</p><pre><code class="language-kotlin">package com.example.mykmpapp
+
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.toKString
+import platform.ohos.OH_GetOSFullName
+
+internal class OHOSPlatform : Platform {
+    @OptIn(ExperimentalForeignApi::class)
+    override val name: String = "OHOS"
+}
+
+actual fun getPlatform(): Platform = OHOSPlatform()</code></pre><p>创建 <code>composeApp/src/ohosArm64Main/kotlin/com/example/mykmpapp/MainArkUIViewController.kt</code>:</p><pre><code class="language-kotlin">@file:OptIn(ExperimentalForeignApi::class)
+
+package com.example.mykmpapp
+
+import androidx.compose.ui.window.ComposeArkUIViewController
+import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.initMainHandler
+import platform.ohos.napi_env
+import platform.ohos.napi_value
+import kotlin.experimental.ExperimentalNativeApi
+
+@OptIn(ExperimentalNativeApi::class)
+@CName("MainArkUIViewController")
+fun MainArkUIViewController(env: napi_env): napi_value {
+    initMainHandler(env)
+    return ComposeArkUIViewController(env) {
+        App()
+    }
+}
+
+typealias NativeResourceManager = CPointer&lt;cnames.structs.NativeResourceManager&gt;?
+var nativeResourceManager: NativeResourceManager = null
+
+@OptIn(ExperimentalForeignApi::class)
+fun initResourceManager(resourceManager: NativeResourceManager) {
+    nativeResourceManager = resourceManager
+}</code></pre><p><strong>关键代码说明</strong>：</p><ul><li><code>@CName("MainArkUIViewController")</code>: 导出C函数供鸿蒙调用</li><li><code>ComposeArkUIViewController</code>: 创建Compose ArkUI视图控制器</li><li><code>initMainHandler</code>: 初始化协程主线程处理器</li><li><code>initResourceManager</code>: 初始化资源管理器</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>4.1 使用DevEco Studio创建Native工程</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">DevecoStudio新建工程入口.png 打开DevEco Studio 选择 **File** -&gt; **New** -&gt; **Create Project** Dev...</p>
+        <ul class="points"><li>DevecoStudio新建工程入口.png</li><li>打开DevEco Studio</li><li>选择 **File** -&gt; **New** -&gt; **Create Project**</li><li>DevecoStudio新建Native工程.png</li></ul>
+        <div class="content rich"><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-93db0f5d92.png" alt="DevecoStudio新建工程入口.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-93db0f5d92.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-93db0f5d92.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure><ol><li>打开DevEco Studio</li><li>选择 <strong>File</strong> -&gt; <strong>New</strong> -&gt; <strong>Create Project</strong></li></ol><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-f04a02834d.png" alt="DevecoStudio新建Native工程.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-f04a02834d.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-f04a02834d.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure><ol><li>选择 <strong>Native C++</strong> 模板</li></ol><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-a92530d48e.png" alt="DevecoStudio新建相同包名的Native应用.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-a92530d48e.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-a92530d48e.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure><ol><li>配置应用信息：<ul><li><strong>Project name</strong>: harmonyApp</li><li><strong>Bundle name</strong>: com.example.mykmpapp (与KMP工程包名一致)</li></ul></li></ol></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>4.2 复制鸿蒙工程到KMP项目</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">复制harmonyApp至kmpApp.png 将创建好的 harmonyApp 目录复制到KMP工程根目录下。</p>
+        <ul class="points"><li>复制harmonyApp至kmpApp.png</li><li>将创建好的 harmonyApp 目录复制到KMP工程根目录下。</li></ul>
+        <div class="content rich"><figure class="doc-figure"><img src="../knowledge-map-assets/kmp-f03735ca-md-9ad9e21275.png" alt="复制harmonyApp至kmpApp.png" loading="lazy" referrerpolicy="no-referrer" data-origin-src="../knowledge-map-assets/kmp-f03735ca-md-9ad9e21275.png" data-local-match="direct" /><figcaption class="img-fallback">图片加载失败，<a class="img-open-link" href="../knowledge-map-assets/kmp-f03735ca-md-9ad9e21275.png" target="_blank" rel="noopener noreferrer">点击打开原图</a></figcaption></figure><p>将创建好的 <code>harmonyApp</code> 目录复制到KMP工程根目录下。</p></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>4.3 使用Patch快速集成（推荐）</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">**重要提示**：为了简化集成流程，我们提供了一个完整的patch文件，包含了所有必要的修改。</p>
+        <ul class="points"><li>**重要提示**：为了简化集成流程，我们提供了一个完整的patch文件，包含了所有必要的修改。</li><li>**Patch文件**：📎 KMP应用集成鸿蒙应用必要修改.patch （点击可直接打开查看）</li><li>**使用方法**：</li><li>**方式一：直接应用Patch（推荐）**</li></ul>
+        <div class="content rich"><p><strong>重要提示</strong>：为了简化集成流程，我们提供了一个完整的patch文件，包含了所有必要的修改。</p><p><strong>Patch文件</strong>：<a href="KMP应用集成鸿蒙应用必要修改.patch" target="_blank" rel="noopener noreferrer">📎 KMP应用集成鸿蒙应用必要修改.patch</a> （点击可直接打开查看）</p><p><strong>使用方法</strong>：</p><ol><li><strong>方式一：直接应用Patch（推荐）</strong></li></ol><pre><code class="language-bash">   # 在KMP工程根目录执行
+   git apply KMP应用集成鸿蒙应用必要修改.patch</code></pre><p>或者使用完整路径：</p><pre><code class="language-bash">   git apply "KMP应用集成鸿蒙应用必要修改.patch"</code></pre><ol><li><strong>方式二：手动配置</strong></li></ol><p>如果您想了解每个修改的详细内容，可以按照第五节的详细说明逐步配置。</p><p><strong>Patch包含的修改内容</strong>：</p><ul><li>✅ KMP工程配置（<code>settings.gradle.kts</code>, <code>gradle/libs.versions.toml</code>, <code>composeApp/build.gradle.kts</code>）</li><li>✅ 鸿蒙平台代码（<code>Platform.ohos.kt</code>, <code>MainArkUIViewController.kt</code>, <code>App.ohos.kt</code>）</li><li>✅ C互操作配置（<code>resource.def</code>, <code>raw_file.h</code>, <code>raw_file_manager.h</code>）</li><li>✅ 鸿蒙应用配置（<code>build-profile.json5</code>, <code>oh-package.json5</code>, <code>CMakeLists.txt</code>）</li><li>✅ NAPI桥接代码（<code>napi_init.cpp</code>）</li><li>✅ ArkTS页面代码（<code>Index.ets</code>, <code>ComposeSample.ets</code>, <code>ComposeInterops.ets</code>）</li><li>✅ Compose支持库（<code>compose.har</code>）</li></ul><blockquote><p><strong>注意</strong>：应用patch后，您可以直接跳到第六节"编译和运行"进行验证。如果您想了解每个配置的详细说明，可以继续阅读第五节。</p></blockquote></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>五、配置鸿蒙工程（详细说明）</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">**说明**：本节详细介绍了patch文件中的所有修改。如果您已经应用了patch，可以跳过本节直接进入第六节。本节内容帮助您理解每个配置的作用和原理。</p>
+        <ul class="points"><li>**说明**：本节详细介绍了patch文件中的所有修改。如果您已经应用了patch，可以跳过本节直接进入第六节。本节内容帮助您理解每个配置的作用和原理。</li><li>以下内容是对patch中所有修改的详细说明：</li></ul>
+        <div class="content rich"><blockquote><p><strong>说明</strong>：本节详细介绍了patch文件中的所有修改。如果您已经应用了patch，可以跳过本节直接进入第六节。本节内容帮助您理解每个配置的作用和原理。</p></blockquote><p>以下内容是对patch中所有修改的详细说明：</p></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>5.1 配置build-profile.json5</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">编辑 harmonyApp/build-profile.json5： json5 { &quot;app&quot;: { &quot;signingConfigs&quot;: [ { &quot;name&quot;: &quot;defa...</p>
+        <ul class="points"><li>编辑 harmonyApp/build-profile.json5：</li><li>json5</li><li>{</li><li>&quot;app&quot;: {</li></ul>
+        <div class="content rich"><p>编辑 <code>harmonyApp/build-profile.json5</code>：</p><pre><code class="language-json5">{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          // 配置签名信息
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "6.0.0(20)",
+        "compatibleSdkVersion": "6.0.0(20)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "nativeCompiler": "BiSheng",
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ]
+  }
+}</code></pre></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>5.2 配置entry模块依赖</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">编辑 harmonyApp/entry/oh-package.json5： json5 { &quot;name&quot;: &quot;entry&quot;, &quot;version&quot;: &quot;1.0.0&quot;, &quot;des...</p>
+        <ul class="points"><li>编辑 harmonyApp/entry/oh-package.json5：</li><li>json5</li><li>{</li><li>&quot;name&quot;: &quot;entry&quot;,</li></ul>
+        <div class="content rich"><p>编辑 <code>harmonyApp/entry/oh-package.json5</code>：</p><pre><code class="language-json5">{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "libentry.so": "file:./src/main/cpp/types/libentry",
+    "compose": "file:./libs/compose.har"
+  }
+}</code></pre><p><strong>关键依赖说明</strong>：</p><ul><li><code>libentry.so</code>: 本地C++模块</li><li><code>compose.har</code>: Compose鸿蒙支持库</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>5.3 配置CMakeLists.txt</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">编辑 harmonyApp/entry/src/main/cpp/CMakeLists.txt： cmake cmake_minimum_required(VERSION 3...</p>
+        <ul class="points"><li>编辑 harmonyApp/entry/src/main/cpp/CMakeLists.txt：</li><li>cmake</li><li>cmake_minimum_required(VERSION 3.5.0)</li><li>project(harmonyApp)</li></ul>
+        <div class="content rich"><p>编辑 <code>harmonyApp/entry/src/main/cpp/CMakeLists.txt</code>：</p><pre><code class="language-cmake">cmake_minimum_required(VERSION 3.5.0)
+project(harmonyApp)
+
+set(NATIVERENDER_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(DEFINED PACKAGE_FIND_FILE)
+    include(${PACKAGE_FIND_FILE})
+endif()
+
+include_directories(${NATIVERENDER_ROOT_PATH}
+                    ${NATIVERENDER_ROOT_PATH}/include)
+
+add_library(entry SHARED napi_init.cpp)
+target_link_libraries(entry PUBLIC libace_napi.z.so)
+target_link_libraries(entry PUBLIC librawfile.z.so)
+target_link_libraries(entry PUBLIC libace_ndk.z.so)
+target_link_libraries(entry PUBLIC ${NATIVERENDER_ROOT_PATH}/../../../libs/arm64-v8a/libkn.so)</code></pre><p><strong>关键配置说明</strong>：</p><ul><li>链接KMP生成的 <code>libkn.so</code> 共享库</li><li>链接鸿蒙NDK必要的库</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>5.4 实现NAPI桥接代码</h2>
+          <span>5 分钟</span>
+        </div>
+        <p class="summary">编辑 harmonyApp/entry/src/main/cpp/napi_init.cpp： cpp #include &quot;napi/native_api.h&quot; #inclu...</p>
+        <ul class="points"><li>编辑 harmonyApp/entry/src/main/cpp/napi_init.cpp：</li><li>cpp</li><li>#include &quot;napi/native_api.h&quot;</li><li>#include &quot;libkn_api.h&quot;</li></ul>
+        <div class="content rich"><p>编辑 <code>harmonyApp/entry/src/main/cpp/napi_init.cpp</code>：</p><pre><code class="language-cpp">#include "napi/native_api.h"
+#include "libkn_api.h"
+#include &lt;rawfile/raw_file_manager.h&gt;
+
+static napi_value MainArkUIViewController(napi_env env, napi_callback_info info) {
+    return reinterpret_cast&lt;napi_value&gt;(MainArkUIViewController(env));
+}
+
+static napi_value InitResourceManager(napi_env env, napi_callback_info info) {
+    size_t argc = 1;
+    napi_value args[1] = {nullptr};
+    napi_get_cb_info(env, info, &amp;argc, args, nullptr, nullptr);
+
+    auto manager = OH_ResourceManager_InitNativeResourceManager(env, args[0]);
+    auto kt = libkn_symbols();
+    kt-&gt;kotlin.root.com.example.mykmpapp.initResourceManager(manager);
+
+    napi_value result;
+    napi_create_int32(env, 0, &amp;result);
+    return result;
+}
+
+EXTERN_C_START
+static napi_value Init(napi_env env, napi_value exports)
+{
+    napi_property_descriptor desc[] = {
+        {"initResourceManager", nullptr, InitResourceManager, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"MainArkUIViewController", nullptr, MainArkUIViewController, nullptr, nullptr, nullptr, napi_default, nullptr},
+    };
+    napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
+    return exports;
+}
+EXTERN_C_END
+
+static napi_module demoModule = {
+    .nm_version = 1,
+    .nm_flags = 0,
+    .nm_filename = nullptr,
+    .nm_register_func = Init,
+    .nm_modname = "entry",
+    .nm_priv = ((void*)0),
+    .reserved = { 0 },
+};
+
+extern "C" __attribute__((constructor)) void RegisterEntryModule(void)
+{
+    napi_module_register(&amp;demoModule);
+}</code></pre><p><strong>关键代码说明</strong>：</p><ul><li><code>MainArkUIViewController</code>: 桥接函数，调用Kotlin导出的同名函数</li><li><code>InitResourceManager</code>: 初始化资源管理器，传递给Kotlin层</li><li><code>libkn_symbols()</code>: 访问Kotlin/Native导出的符号</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>5.5 创建ArkTS页面</h2>
+          <span>19 分钟</span>
+        </div>
+        <p class="summary">5.5.1 创建ComposeInterops.ets 首先创建 harmonyApp/entry/src/main/ets/pages/ComposeInterops.et...</p>
+        <ul class="points"><li>5.5.1 创建ComposeInterops.ets</li><li>首先创建 harmonyApp/entry/src/main/ets/pages/ComposeInterops.ets，实现ArkUI与Compose互操作组件：</li><li>typescript</li><li>import { promptAction } from &#x27;@kit.ArkUI&#x27;;</li></ul>
+        <div class="content rich"><h4>5.5.1 创建ComposeInterops.ets</h4><p>首先创建 <code>harmonyApp/entry/src/main/ets/pages/ComposeInterops.ets</code>，实现ArkUI与Compose互操作组件：</p><pre><code class="language-typescript">import { promptAction } from '@kit.ArkUI';
+
+interface ButtonArgs {
+  text: string
+  backgroundColor: string
+}
+
+@Builder
+export function buttonBuilder(args: ButtonArgs) {
+  button()
+}
+
+@Component
+export struct button {
+  @Consume compose_args: ButtonArgs
+
+  build() {
+    Column() {
+      Button(this.compose_args.text)
+        .backgroundColor(this.compose_args.backgroundColor)
+        .width('100%')
+        .onClick(e =&gt; {
+          console.log(`Button Clicked: ${this.compose_args.text}`)
+        })
+        .height('70%')
+
+      Text(this.compose_args.text)
+        .backgroundColor(this.compose_args.backgroundColor)
+        .width('100%')
+        .onClick(e =&gt; {
+          console.log(`Text Clicked: ${this.compose_args.text}`)
+        })
+        .height('20%')
+      Stack().height('10%')
+    }
+  }
+}
+
+interface TextArgs {
+  id: string
+  text: string
+  backgroundColor: string
+}
+
+@Builder
+export function textBuilder(args: TextArgs) {
+  text()
+}
+
+@Component
+export struct text {
+  @Consume compose_args: TextArgs
+
+  build() {
+    Text(this.compose_args.id + " " + this.compose_args.text)
+      .backgroundColor(this.compose_args.backgroundColor)
+      .width('100%')
+      .height('100%')
+      .borderRadius('5vp')
+      .onClick(e =&gt; {
+        console.log(`Text Clicked: ${JSON.stringify(this.compose_args)}`)
+      })
+  }
+}
+
+@Builder
+export function labelBuilder(args: ButtonArgs) {
+  label()
+}
+
+@Component
+export struct label {
+  @Consume compose_args: ButtonArgs
+
+  build() {
+    Column() {
+      Button(`+ ${this.compose_args.text}`, { type: ButtonType.Normal })
+        .backgroundColor(this.compose_args.backgroundColor)
+        .width('100%')
+        .height('50%')
+        .borderRadius(2)
+        .onClick(e =&gt; {
+          promptAction.showToast({
+            message: this.compose_args.text
+          })
+        })
+      Text(this.compose_args.text)
+        .backgroundColor(Color.Orange)
+        .width('100%')
+        .height('50%')
+    }
+  }
+}
+
+@Builder
+export function textInputBuilder(args: InputArgs) {
+  textInput()
+}
+
+interface InputArgs {
+  text: string
+}
+
+@Component
+export struct textInput {
+  @Consume compose_args: InputArgs
+
+  build() {
+    Column() {
+      TextInput({ text: $$this.compose_args.text })
+        .onChange(value =&gt; {
+          console.log(`/// onChange: ${value}`)
+        })
+
+      Text("ArkUI组件更新:")
+        .fontColor(Color.Gray)
+        .margin({ top: 30 })
+
+      Text(this.compose_args.text)
+        .width('100%')
+        .padding(10)
+        .border({ width: 1, color: Color.Gray })
+    }.alignItems(HorizontalAlign.Start)
+  }
+}
+
+@Builder
+export function layerBuilder(args: ButtonArgs) {
+  layer()
+}
+
+@Component
+export struct layer {
+  @Consume compose_args: ButtonArgs
+
+  build() {
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Text(this.compose_args.text)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(this.compose_args.backgroundColor)
+    .onClick(() =&gt; {
+      promptAction.showToast({ message: `${this.compose_args.text} Clicked` })
+    })
+  }
+}
+
+@Builder
+export function verticalListBuilder(args?: object) {
+  verticalList()
+}
+
+@Component
+export struct verticalList {
+  build() {
+    Row() {
+      List() {
+        ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], (item: number, index) =&gt; {
+          ListItem() {
+            Button(`Ark Button ${index}`, { type: ButtonType.Normal })
+              .borderRadius(2)
+              .height('100vp')
+              .padding(10)
+          }.padding(10)
+        })
+      }.listDirection(Axis.Vertical).height('100%').width('40%')
+
+      Stack().width('20%').height('100%').borderWidth(1)
+
+      Scroll() {
+        Column() {
+          ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], (item: number, index) =&gt; {
+            ListItem() {
+              Button(`Ark Button ${index}`, { type: ButtonType.Normal })
+                .borderRadius(2)
+                .height('100vp')
+                .padding(10)
+            }.padding(10)
+          })
+        }
+      }.scrollable(ScrollDirection.Vertical).height('100%').width('40%')
+    }
+  }
+}
+
+@Builder
+export function horizontalListBuilder(args?: object) {
+  horizontalList()
+}
+
+@Component
+export struct horizontalList {
+  build() {
+    Column() {
+      List() {
+        ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], (item: number, index) =&gt; {
+          ListItem() {
+            Button(`Ark Button ${index}`, { type: ButtonType.Normal })
+              .borderRadius(2)
+              .height('100vp')
+          }.padding(10)
+        })
+      }.listDirection(Axis.Horizontal).height('40%').width('100%')
+
+      Stack().width('100%').height('20%').borderWidth(1)
+
+      Scroll() {
+        Row() {
+          ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], (item: number, index) =&gt; {
+            ListItem() {
+              Button(`Ark Button ${index}`, { type: ButtonType.Normal })
+                .borderRadius(2)
+                .height('100vp')
+            }.padding(10)
+          })
+        }
+      }.scrollable(ScrollDirection.Horizontal).height('40%').width('100%')
+    }
+  }
+}</code></pre><p><strong>关键代码说明</strong>：</p><ul><li><code>@Builder</code>: 定义可复用的UI构建函数</li><li><code>@Component</code>: 定义ArkUI组件</li><li><code>@Consume</code>: 从Compose传递过来的参数</li><li>这些组件允许在Compose中嵌入原生ArkUI组件，实现互操作</li></ul><h4>5.5.2 创建ComposeSample.ets</h4><p>创建 <code>harmonyApp/entry/src/main/ets/pages/ComposeSample.ets</code>：</p><pre><code class="language-typescript">import { registerComposeInteropBuilder } from 'compose/src/main/ets/compose/ArkUIView';
+import {
+  buttonBuilder,
+  textBuilder,
+  labelBuilder,
+  textInputBuilder,
+  buttonWrapContentBuilder,
+  layerBuilder,
+  verticalListBuilder,
+  horizontalListBuilder,
+} from './ComposeInterops';
+
+export function registerComposeInteropBuilders() {
+  registerComposeInteropBuilder('button', buttonBuilder)
+  registerComposeInteropBuilder('label', labelBuilder)
+  registerComposeInteropBuilder('buttonWrapContent', buttonWrapContentBuilder)
+  registerComposeInteropBuilder('textInput', textInputBuilder)
+  registerComposeInteropBuilder('layer', layerBuilder)
+  registerComposeInteropBuilder('text', textBuilder)
+  registerComposeInteropBuilder('verticalList', verticalListBuilder)
+  registerComposeInteropBuilder('horizontalList', horizontalListBuilder)
+}</code></pre><h4>5.5.3 创建Index.ets入口页面</h4><p>创建 <code>harmonyApp/entry/src/main/ets/pages/Index.ets</code>：</p><pre><code class="language-typescript">import { Compose } from 'compose';
+import { MainArkUIViewController } from 'libentry.so';
+import { registerComposeInteropBuilders } from './ComposeSample';
+
+registerComposeInteropBuilders();
+
+@Entry
+@Component
+struct Index {
+  private controller = MainArkUIViewController()
+
+  onPageShow(): void {
+    this.controller.onPageShow()
+  }
+
+  onPageHide(): void {
+    this.controller.onPageHide()
+  }
+
+  onBackPress(): boolean | void {
+    // 返回事件转发给 Compose，优先给 Compose 消费，若 Compose 不消费再给系统消费
+    return this.controller.onBackPress()
+  }
+
+  build() {
+    Stack() {
+      Compose(
+        {
+          controller: this.controller,
+          libraryName: "entry",
+          // 若 Compose 不消费，事件会流转到这里，若这里返回 false，则交由系统处理
+          onBackPressed: () =&gt; false
+        }
+      ).width('100%').height('100%')
+    }.width('100%').height('100%')
+  }
+}</code></pre><p><strong>关键代码说明</strong>：</p><ul><li><code>MainArkUIViewController()</code>: 调用NAPI导出的函数，创建Compose控制器</li><li><code>registerComposeInteropBuilders()</code>: 注册ArkUI与Compose互操作组件</li><li><code>Compose</code>: 鸿蒙Compose组件，承载Kotlin编写的Compose UI</li><li>生命周期方法：<code>onPageShow</code>, <code>onPageHide</code>, <code>onBackPress</code></li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>6.1 编译KMP共享库</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">在KMP工程根目录执行： bash</p>
+        <ul class="points"><li>在KMP工程根目录执行：</li><li>bash</li></ul>
+        <div class="content rich"><p>在KMP工程根目录执行：</p><pre><code class="language-bash"></code></pre></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>Debug版本</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">./gradlew publishDebugBinariesToHarmonyApp</p>
+        <ul class="points"><li>./gradlew publishDebugBinariesToHarmonyApp</li></ul>
+        <div class="content rich"><p>./gradlew publishDebugBinariesToHarmonyApp</p></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>Release版本</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">./gradlew publishReleaseBinariesToHarmonyApp 此命令会： 编译鸿蒙平台的Kotlin代码 生成 libkn.so 共享库 生成 l...</p>
+        <ul class="points"><li>./gradlew publishReleaseBinariesToHarmonyApp</li><li>此命令会：</li><li>编译鸿蒙平台的Kotlin代码</li><li>生成 libkn.so 共享库</li></ul>
+        <div class="content rich"><p>./gradlew publishReleaseBinariesToHarmonyApp</p><pre><code>
+此命令会：
+1. 编译鸿蒙平台的Kotlin代码
+2. 生成 `libkn.so` 共享库
+3. 生成 `libkn_api.h` 头文件
+4. 自动复制到 `harmonyApp/entry/libs/arm64-v8a/` 目录</code></pre></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>6.2 在DevEco Studio中编译鸿蒙应用</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">用DevEco Studio打开 harmonyApp 目录 等待依赖同步完成 点击 **Build** -&gt; **Build Hap(s)/APP(s)** 或直接点击运行...</p>
+        <ul class="points"><li>用DevEco Studio打开 harmonyApp 目录</li><li>等待依赖同步完成</li><li>点击 **Build** -&gt; **Build Hap(s)/APP(s)**</li><li>或直接点击运行按钮部署到设备/模拟器</li></ul>
+        <div class="content rich"><ol><li>用DevEco Studio打开 <code>harmonyApp</code> 目录</li><li>等待依赖同步完成</li><li>点击 <strong>Build</strong> -&gt; <strong>Build Hap(s)/APP(s)</strong></li><li>或直接点击运行按钮部署到设备/模拟器</li></ol></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>6.3 验证集成</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">应用启动后，应该能看到： Compose编写的UI界面正常显示 显示文本: &quot;Compose: Hello, OHOS!&quot; 界面响应正常</p>
+        <ul class="points"><li>应用启动后，应该能看到：</li><li>Compose编写的UI界面正常显示</li><li>显示文本: &quot;Compose: Hello, OHOS!&quot;</li><li>界面响应正常</li></ul>
+        <div class="content rich"><p>应用启动后，应该能看到：</p><ul><li>Compose编写的UI界面正常显示</li><li>显示文本: "Compose: Hello, OHOS!"</li><li>界面响应正常</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>7.1 找不到libkn.so</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">**问题**: 编译鸿蒙应用时提示找不到libkn.so **解决方案**: 确认已执行 publishDebugBinariesToHarmonyApp 任务 检查 har...</p>
+        <ul class="points"><li>**问题**: 编译鸿蒙应用时提示找不到libkn.so</li><li>**解决方案**:</li><li>确认已执行 publishDebugBinariesToHarmonyApp 任务</li><li>检查 harmonyApp/entry/libs/arm64-v8a/libkn.so 是否存在</li></ul>
+        <div class="content rich"><p><strong>问题</strong>: 编译鸿蒙应用时提示找不到libkn.so</p><p><strong>解决方案</strong>:</p><ol><li>确认已执行 <code>publishDebugBinariesToHarmonyApp</code> 任务</li><li>检查 <code>harmonyApp/entry/libs/arm64-v8a/libkn.so</code> 是否存在</li><li>检查 CMakeLists.txt 中的路径是否正确</li></ol></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>7.2 符号未定义</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">**问题**: 链接时提示 undefined reference to MainArkUIViewController **解决方案**: 确认 libkn_api.h 已...</p>
+        <ul class="points"><li>**问题**: 链接时提示 undefined reference to MainArkUIViewController</li><li>**解决方案**:</li><li>确认 libkn_api.h 已生成并复制到 harmonyApp/entry/src/main/cpp/include/</li><li>检查 Kotlin 代码中的 @CName 注解是否正确</li></ul>
+        <div class="content rich"><p><strong>问题</strong>: 链接时提示 <code>undefined reference to MainArkUIViewController</code></p><p><strong>解决方案</strong>:</p><ol><li>确认 <code>libkn_api.h</code> 已生成并复制到 <code>harmonyApp/entry/src/main/cpp/include/</code></li><li>检查 Kotlin 代码中的 <code>@CName</code> 注解是否正确</li><li>重新编译 KMP 共享库</li></ol></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>7.3 资源加载失败</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">**问题**: 应用运行时无法加载Compose资源 **解决方案**: 确认已调用 initResourceManager 检查 napi_init.cpp 中的资源管理器...</p>
+        <ul class="points"><li>**问题**: 应用运行时无法加载Compose资源</li><li>**解决方案**:</li><li>确认已调用 initResourceManager</li><li>检查 napi_init.cpp 中的资源管理器初始化代码</li></ul>
+        <div class="content rich"><p><strong>问题</strong>: 应用运行时无法加载Compose资源</p><p><strong>解决方案</strong>:</p><ol><li>确认已调用 <code>initResourceManager</code></li><li>检查 <code>napi_init.cpp</code> 中的资源管理器初始化代码</li><li>确认 <code>compose.har</code> 依赖已正确配置</li></ol></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>7.4 版本不兼容</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">**问题**: 编译时提示Kotlin或Compose版本不兼容 **解决方案**: 使用指定的鸿蒙版本: kotlin: 2.2.0-ohos-07 compose-mul...</p>
+        <ul class="points"><li>**问题**: 编译时提示Kotlin或Compose版本不兼容</li><li>**解决方案**:</li><li>使用指定的鸿蒙版本:</li><li>kotlin: 2.2.0-ohos-07</li></ul>
+        <div class="content rich"><p><strong>问题</strong>: 编译时提示Kotlin或Compose版本不兼容</p><p><strong>解决方案</strong>:</p><ol><li>使用指定的鸿蒙版本:<ul><li>kotlin: <code>2.2.0-ohos-07</code></li><li>compose-multiplatform: <code>1.6.1-ohos-003</code></li></ul></li><li>确认 Maven 仓库配置正确</li><li>清理缓存: <code>./gradlew clean</code></li></ol></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>八、项目结构总览</h2>
+          <span>3 分钟</span>
+        </div>
+        <p class="summary">MyKMPApp/ ├── composeApp/ # KMP应用模块 │ ├── build.gradle.kts # 构建配置 │ └── src/ │ ├── andr...</p>
+        <ul class="points"><li>MyKMPApp/</li><li>├── composeApp/ # KMP应用模块</li><li>│ ├── build.gradle.kts # 构建配置</li><li>│ └── src/</li></ul>
+        <div class="content rich"><pre><code>MyKMPApp/
+├── composeApp/                         # KMP应用模块
+│   ├── build.gradle.kts                # 构建配置
+│   └── src/
+│       ├── androidMain/                # Android平台代码
+│       ├── iosMain/                    # iOS平台代码
+│       ├── commonMain/                 # 共享代码
+│       │   └── kotlin/
+│       │       └── com/example/mykmpapp/
+│       │           ├── App.kt          # 主UI界面
+│       │           ├── Greeting.kt     # 业务逻辑
+│       │           └── Platform.kt     # 平台接口定义
+│       └── ohosArm64Main/              # 鸿蒙平台代码
+│           ├── cinterop/               # C互操作配置
+│           │   ├── include/
+│           │   │   ├── raw_file.h
+│           │   │   └── raw_file_manager.h
+│           │   └── resource.def
+│           └── kotlin/
+│               └── com/example/mykmpapp/
+│                   ├── MainArkUIViewController.kt  # 视图控制器
+│                   └── Platform.ohos.kt           # 平台实现
+├── harmonyApp/                         # 鸿蒙应用工程
+│   ├── entry/
+│   │   ├── libs/
+│   │   │   ├── arm64-v8a/
+│   │   │   │   └── libkn.so           # KMP生成的共享库
+│   │   │   └── compose.har            # Compose鸿蒙支持库
+│   │   ├── src/main/
+│   │   │   ├── cpp/
+│   │   │   │   ├── include/
+│   │   │   │   │   └── libkn_api.h    # KMP生成的头文件
+│   │   │   │   ├── CMakeLists.txt     # CMake配置
+│   │   │   │   └── napi_init.cpp      # NAPI桥接代码
+│   │   │   └── ets/
+│   │   │       └── pages/
+│   │   │           ├── Index.ets      # 主页面
+│   │   │           └── ComposeSample.ets  # Compose互操作配置
+│   │   └── oh-package.json5           # 依赖配置
+│   └── build-profile.json5            # 构建配置
+├── gradle/
+│   └── libs.versions.toml             # 版本管理
+├── settings.gradle.kts                # 工程设置
+└── build.gradle.kts                   # 根构建配置</code></pre></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>9.1 配置多模块</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">如果项目有多个共享模块，可以在 settings.gradle.kts 中添加： kotlin include(&quot;:composeApp&quot;) include(&quot;:shared...</p>
+        <ul class="points"><li>如果项目有多个共享模块，可以在 settings.gradle.kts 中添加：</li><li>kotlin</li><li>include(&quot;:composeApp&quot;)</li><li>include(&quot;:shared&quot;)</li></ul>
+        <div class="content rich"><p>如果项目有多个共享模块，可以在 <code>settings.gradle.kts</code> 中添加：</p><pre><code class="language-kotlin">include(":composeApp")
+include(":shared")</code></pre></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>9.2 配置符号表</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">为了便于调试崩溃，可以保留符号表： kotlin ohosArm64 { binaries.sharedLib { // 在debug和release模式，让gradle都打...</p>
+        <ul class="points"><li>为了便于调试崩溃，可以保留符号表：</li><li>kotlin</li><li>ohosArm64 {</li><li>binaries.sharedLib {</li></ul>
+        <div class="content rich"><p>为了便于调试崩溃，可以保留符号表：</p><pre><code class="language-kotlin">ohosArm64 {
+    binaries.sharedLib {
+        // 在debug和release模式，让gradle都打包带符号表的so
+        debuggable = true
+    }
+}</code></pre></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>9.3 配置ProGuard/R8</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">对于生产环境，可以配置代码混淆和优化。</p>
+        <ul class="points"><li>对于生产环境，可以配置代码混淆和优化。</li></ul>
+        <div class="content rich"><p>对于生产环境，可以配置代码混淆和优化。</p></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>十、总结</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">通过本教程，您已经完成了： ✅ 创建KMP多平台工程 ✅ 配置鸿蒙平台支持 ✅ 创建鸿蒙应用工程 ✅ 实现NAPI桥接 ✅ 集成Compose UI ✅ 编译和运行应用 现在...</p>
+        <ul class="points"><li>通过本教程，您已经完成了：</li><li>✅ 创建KMP多平台工程</li><li>✅ 配置鸿蒙平台支持</li><li>✅ 创建鸿蒙应用工程</li></ul>
+        <div class="content rich"><p>通过本教程，您已经完成了：</p><ol><li>✅ 创建KMP多平台工程</li><li>✅ 配置鸿蒙平台支持</li><li>✅ 创建鸿蒙应用工程</li><li>✅ 实现NAPI桥接</li><li>✅ 集成Compose UI</li><li>✅ 编译和运行应用</li></ol><p>现在您可以：</p><ul><li>在 <code>commonMain</code> 中编写共享的业务逻辑和UI</li><li>在 <code>ohosArm64Main</code> 中编写鸿蒙平台特定代码</li><li>使用Compose构建现代化的跨平台UI</li></ul></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>十一、参考资源</h2>
+          <span>2 分钟</span>
+        </div>
+        <p class="summary">Kotlin Multiplatform 官方文档 Compose Multiplatform 官方文档 HarmonyOS 开发者文档 --- **最后更新**: 2025...</p>
+        <ul class="points"><li>Kotlin Multiplatform 官方文档</li><li>Compose Multiplatform 官方文档</li><li>HarmonyOS 开发者文档</li><li>---</li></ul>
+        <div class="content rich"><ul><li><a href="https://kotlinlang.org/docs/multiplatform.html" target="_blank" rel="noopener noreferrer">Kotlin Multiplatform 官方文档</a></li><li><a href="https://www.jetbrains.com/lp/compose-multiplatform/" target="_blank" rel="noopener noreferrer">Compose Multiplatform 官方文档</a></li><li><a href="https://developer.harmonyos.com/" target="_blank" rel="noopener noreferrer">HarmonyOS 开发者文档</a></li></ul><hr /><p><strong>最后更新</strong>: 2025年11月18日</p></div>
+      </section>
+  </main>
+  </div>
+
+  <div class="img-modal" id="img-modal" aria-hidden="true">
+    <div class="img-modal-backdrop"></div>
+    <div class="img-modal-toolbar">
+      <button type="button" id="img-zoom-out" title="缩小">-</button>
+      <button type="button" id="img-zoom-in" title="放大">+</button>
+      <button type="button" id="img-zoom-reset" title="重置">100%</button>
+      <span class="zoom-value" id="img-zoom-value">100%</span>
+      <button type="button" id="img-modal-close" title="关闭">关闭</button>
+    </div>
+    <div class="img-modal-image-wrap">
+      <img id="img-modal-img" alt="" />
+    </div>
+  </div>
+
+
+  <script>
+    (function () {
+      const root = document.getElementById('zoom-root');
+      if (!root) return;
+      const valueEl = document.getElementById('zoom-value');
+      const min = 0.6;
+      const max = 2.4;
+      const step = 0.1;
+      const key = "km_detail_zoom";
+      let scale = 1;
+
+      try {
+        const saved = parseFloat(localStorage.getItem(key) || "1");
+        if (!Number.isNaN(saved)) scale = saved;
+      } catch (_) {}
+
+      const clamp = (n) => Math.min(max, Math.max(min, n));
+
+      const apply = () => {
+        scale = clamp(scale);
+        if ("zoom" in root.style) {
+          root.style.zoom = String(scale);
+        } else {
+          root.style.transform = `scale(${scale})`;
+          root.style.transformOrigin = "top center";
+        }
+        if (valueEl) valueEl.textContent = `${Math.round(scale * 100)}%`;
+        try {
+          localStorage.setItem(key, String(scale));
+        } catch (_) {}
+      };
+
+      document.querySelectorAll("[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-zoom");
+          if (action === "in") scale += step;
+          if (action === "out") scale -= step;
+          if (action === "reset") scale = 1;
+          apply();
+        });
+      });
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (!(event.ctrlKey || event.metaKey)) return;
+          if (document.body.classList.contains("img-modal-open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+
+      apply();
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const modal = document.getElementById("img-modal");
+      if (!modal) return;
+      const image = document.getElementById("img-modal-img");
+      const imageWrap = modal.querySelector(".img-modal-image-wrap");
+      const closeBtn = document.getElementById("img-modal-close");
+      const zoomOutBtn = document.getElementById("img-zoom-out");
+      const zoomInBtn = document.getElementById("img-zoom-in");
+      const zoomResetBtn = document.getElementById("img-zoom-reset");
+      const zoomValue = document.getElementById("img-zoom-value");
+      if (!image || !imageWrap) return;
+
+      let scale = 1;
+      const min = 0.2;
+      const max = 6;
+      const step = 0.15;
+      let isDragging = false;
+      let dragPointerId = null;
+      let lastX = 0;
+      let lastY = 0;
+
+      const apply = () => {
+        scale = Math.min(max, Math.max(min, scale));
+        image.style.transform = `scale(${scale})`;
+        if (zoomValue) zoomValue.textContent = `${Math.round(scale * 100)}%`;
+      };
+
+      const open = (src, alt) => {
+        image.src = src;
+        image.alt = alt || "";
+        scale = 1;
+        apply();
+        imageWrap.scrollLeft = 0;
+        imageWrap.scrollTop = 0;
+        modal.classList.add("open");
+        document.body.classList.add("img-modal-open");
+        document.body.style.overflow = "hidden";
+      };
+
+      const stopDragging = () => {
+        isDragging = false;
+        dragPointerId = null;
+        imageWrap.classList.remove("dragging");
+      };
+
+      const close = () => {
+        stopDragging();
+        modal.classList.remove("open");
+        document.body.classList.remove("img-modal-open");
+        document.body.style.overflow = "";
+        image.removeAttribute("src");
+      };
+
+      document.querySelectorAll(".doc-figure img").forEach((img) => {
+        const figure = img.closest(".doc-figure");
+        const originSrc = img.getAttribute("data-origin-src") || img.src;
+
+        const markFailed = () => {
+          if (!figure) return;
+          figure.classList.add("img-load-failed");
+          const link = figure.querySelector(".img-open-link");
+          if (link && !link.getAttribute("href")) {
+            link.setAttribute("href", originSrc);
+          }
+        };
+
+        img.addEventListener("error", () => {
+          if (img.dataset.retriedNoQuery !== "1") {
+            const noQuery = originSrc.split("?")[0];
+            if (noQuery && noQuery !== originSrc) {
+              img.dataset.retriedNoQuery = "1";
+              img.src = noQuery;
+              return;
+            }
+          }
+          markFailed();
+        });
+
+        if (img.complete && img.naturalWidth === 0) {
+          markFailed();
+        }
+
+        img.addEventListener("click", () => {
+          if (img.naturalWidth > 0) {
+            open(img.currentSrc || img.src, img.alt);
+            return;
+          }
+          if (originSrc && originSrc !== "#") {
+            window.open(originSrc, "_blank", "noopener,noreferrer");
+          }
+        });
+      });
+
+      closeBtn?.addEventListener("click", close);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal || event.target.classList.contains("img-modal-backdrop")) {
+          close();
+        }
+      });
+
+      zoomInBtn?.addEventListener("click", () => { scale += step; apply(); });
+      zoomOutBtn?.addEventListener("click", () => { scale -= step; apply(); });
+      zoomResetBtn?.addEventListener("click", () => { scale = 1; apply(); });
+
+      imageWrap.addEventListener("pointerdown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.button !== 0) return;
+        isDragging = true;
+        dragPointerId = event.pointerId;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        imageWrap.classList.add("dragging");
+        imageWrap.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      });
+
+      imageWrap.addEventListener("pointermove", (event) => {
+        if (!isDragging || event.pointerId !== dragPointerId) return;
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        imageWrap.scrollLeft -= dx;
+        imageWrap.scrollTop -= dy;
+        lastX = event.clientX;
+        lastY = event.clientY;
+      });
+
+      const onPointerDone = (event) => {
+        if (event.pointerId !== dragPointerId) return;
+        imageWrap.releasePointerCapture?.(event.pointerId);
+        stopDragging();
+      };
+
+      imageWrap.addEventListener("pointerup", onPointerDone);
+      imageWrap.addEventListener("pointercancel", onPointerDone);
+
+      modal.addEventListener(
+        "wheel",
+        (event) => {
+          if (!modal.classList.contains("open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.key === "Escape") {
+          close();
+        } else if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const roots = document.querySelectorAll(".content.rich");
+      if (!roots.length) return;
+
+      const h3Pattern = /^(?:[一二三四五六七八九十]+[、.．]|\d+[、.．)])\s*/;
+      const h4Pattern = /^\d+\.\d+\s*/;
+      const shortTitlePattern = /(?:流程|步骤|说明|配置|命令|目录|要求|概览)$/;
+      const bulletPattern = /^[-*•]\s+/;
+      const numberItemPattern = /^\d+[.)、]\s+/;
+
+      const commandPattern =
+        /^(?:\$\s*)?(?:export|git|ohpm|npm|pnpm|yarn|npx|python|python3|java|javac|gradle|\.\/gradlew|\.\/|adb|hdc|cmake|make|brew|curl|wget|source|chmod|chown|cp|mv|ls|cat|echo)\b/i;
+      const envAssignPattern = /^(?:[A-Z_][A-Z0-9_]*=|PATH=|JAVA_HOME=|ANDROID_HOME=)/;
+      const pathLikePattern = /(?:^\/|^\.\/|https?:\/\/|[\w.-]+\/[\w./-]+)/;
+
+      const esc = (value) => {
+        const span = document.createElement("span");
+        span.textContent = value;
+        return span.innerHTML;
+      };
+
+      const isCommandLike = (text) => {
+        const sample = text.trim();
+        if (!sample) return false;
+        if (sample.length > 220) return false;
+        if (commandPattern.test(sample)) return true;
+        if (envAssignPattern.test(sample)) return true;
+        if (sample.includes(" && ") || sample.includes(" || ")) return true;
+        if (pathLikePattern.test(sample) && /\b(?:build|publish|clone|install|run|export|gradle|script)\b/i.test(sample)) {
+          return true;
+        }
+        return false;
+      };
+
+      roots.forEach((root) => {
+        const children = Array.from(root.children);
+        const rebuilt = [];
+        let codeBuffer = [];
+
+        const flushCode = () => {
+          if (!codeBuffer.length) return;
+          const pre = document.createElement("pre");
+          pre.className = "auto-code";
+          const code = document.createElement("code");
+          code.textContent = codeBuffer.join("\n");
+          pre.appendChild(code);
+          rebuilt.push(pre);
+          codeBuffer = [];
+        };
+
+        children.forEach((node) => {
+          if (node.tagName !== "P") {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          const text = (node.textContent || "").replace(/\u00A0/g, " ").trim();
+          if (!text) return;
+
+          if (h3Pattern.test(text)) {
+            flushCode();
+            const h3 = document.createElement("h3");
+            h3.className = "auto-h3";
+            h3.textContent = text;
+            rebuilt.push(h3);
+            return;
+          }
+
+          if (h4Pattern.test(text) || (text.length <= 24 && shortTitlePattern.test(text))) {
+            flushCode();
+            const h4 = document.createElement("h4");
+            h4.className = "auto-h4";
+            h4.textContent = text;
+            rebuilt.push(h4);
+            return;
+          }
+
+          const keyValue = text.match(/^([^:：]{2,20}[：:])\s*(.+)$/);
+          if (keyValue) {
+            const key = keyValue[1].trim();
+            const value = keyValue[2].trim();
+            if (value && isCommandLike(value)) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><code>${esc(value)}</code>`;
+              rebuilt.push(row);
+              return;
+            }
+            if (value && value.length <= 120) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><span>${esc(value)}</span>`;
+              rebuilt.push(row);
+              return;
+            }
+          }
+
+          if (isCommandLike(text)) {
+            codeBuffer.push(text);
+            return;
+          }
+
+          if (bulletPattern.test(text) || numberItemPattern.test(text)) {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          flushCode();
+          rebuilt.push(node);
+        });
+
+        flushCode();
+        root.replaceChildren(...rebuilt);
+      });
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const back = document.getElementById("chapter-back-link");
+      if (!back) return;
+      const chapter = (new URLSearchParams(window.location.search).get("chapter") || "all").trim().toLowerCase();
+      if (!/^[a-z0-9-]+$/.test(chapter) || chapter === "all") {
+        back.href = "../knowledge-map-chapters.html";
+        return;
+      }
+      back.href = `../knowledge-map-chapters-${chapter}.html`;
+    })();
+  </script>
+</body>
+</html>

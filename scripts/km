@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEFAULT_CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+
+resolve_skill_root() {
+  if [[ -n "${SKILL_ROOT:-}" ]]; then
+    printf '%s\n' "$SKILL_ROOT"
+    return 0
+  fi
+
+  local candidates=(
+    "$ROOT_DIR/tools/cmp-knowledge-map-builder"
+    "$DEFAULT_CODEX_HOME/skills/cmp-knowledge-map-builder"
+    "$HOME/.codex/skills/cmp-knowledge-map-builder"
+  )
+
+  local item
+  for item in "${candidates[@]}"; do
+    if [[ -f "$item/scripts/build_knowledge_map.py" ]]; then
+      printf '%s\n' "$item"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+SKILL_ROOT="$(resolve_skill_root || true)"
+BUILDER="${SKILL_ROOT}/scripts/build_knowledge_map.py"
+INPUT_DIR="${KM_INPUT_DIR:-${SKILL_ROOT}/assets}"
+OUTPUT_DIR="${KM_OUTPUT_DIR:-${SKILL_ROOT}/output/knowledge-map-output}"
+MAP_FILE="${OUTPUT_DIR}/knowledge-map.html"
+
+PROJECT_NAME="${PROJECT_NAME:-CMP框架知识地图}"
+TARGET_MINUTES="${TARGET_MINUTES:-60}"
+PORT="${KM_PORT:-8765}"
+
+check_environment() {
+  if [[ -z "$SKILL_ROOT" || ! -f "$BUILDER" ]]; then
+    cat <<EOF
+未找到知识地图构建器。
+
+请任选一种方式：
+1) 安装 skill 到默认目录:
+   $DEFAULT_CODEX_HOME/skills/cmp-knowledge-map-builder
+2) 手动指定路径:
+   export SKILL_ROOT="/path/to/cmp-knowledge-map-builder"
+
+然后重试: ./scripts/km update
+EOF
+    exit 1
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "未找到 python3，请先安装 Python 3。"
+    exit 1
+  fi
+}
+
+open_target() {
+  local target="$1"
+  if command -v open >/dev/null 2>&1; then
+    open "$target"
+    return 0
+  fi
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$target" >/dev/null 2>&1 || true
+    return 0
+  fi
+  echo "当前系统无可用打开命令，请手动打开:"
+  echo "$target"
+}
+
+usage() {
+  cat <<'EOF'
+用法: km <command>
+
+commands:
+  start    增量更新知识地图并自动打开入口页（推荐）
+  update   只做增量更新，不打开页面
+  open     只打开当前入口页
+  serve    启动本地服务并打开浏览器（固定地址）
+  doctor   输出当前路径配置，便于排查
+  help     显示帮助
+
+示例:
+  ./scripts/km start
+  ./scripts/km update
+  ./scripts/km serve
+
+环境变量:
+  SKILL_ROOT    构建器根目录（优先）
+  KM_INPUT_DIR  文档输入目录（默认: \$SKILL_ROOT/assets）
+  KM_OUTPUT_DIR 输出目录（默认: \$SKILL_ROOT/output/knowledge-map-output）
+  PROJECT_NAME  项目标题（默认: CMP框架知识地图）
+  TARGET_MINUTES 目标时长（默认: 60）
+  KM_PORT       serve 端口（默认: 8765）
+EOF
+}
+
+build_incremental() {
+  check_environment
+  python3 "$BUILDER" \
+    --input "$INPUT_DIR" \
+    --output "$OUTPUT_DIR" \
+    --project "$PROJECT_NAME" \
+    --target-minutes "$TARGET_MINUTES" \
+    --incremental
+}
+
+open_map() {
+  check_environment
+  if [[ ! -f "$MAP_FILE" ]]; then
+    echo "未找到地图入口: $MAP_FILE"
+    echo "请先执行: ./scripts/km update"
+    exit 1
+  fi
+  open_target "$MAP_FILE"
+}
+
+serve_map() {
+  check_environment
+  if [[ ! -f "$MAP_FILE" ]]; then
+    echo "未找到地图入口: $MAP_FILE"
+    echo "请先执行: ./scripts/km update"
+    exit 1
+  fi
+  cd "$OUTPUT_DIR"
+  local url="http://127.0.0.1:${PORT}/knowledge-map.html"
+  echo "本地服务已启动: $url"
+  open_target "$url"
+  python3 -m http.server "$PORT" --bind 127.0.0.1
+}
+
+doctor() {
+  echo "ROOT_DIR=$ROOT_DIR"
+  echo "DEFAULT_CODEX_HOME=$DEFAULT_CODEX_HOME"
+  echo "SKILL_ROOT=${SKILL_ROOT:-<未解析>}"
+  echo "BUILDER=$BUILDER"
+  echo "INPUT_DIR=$INPUT_DIR"
+  echo "OUTPUT_DIR=$OUTPUT_DIR"
+  echo "MAP_FILE=$MAP_FILE"
+  if [[ -f "$BUILDER" ]]; then
+    echo "builder_status=ok"
+  else
+    echo "builder_status=missing"
+  fi
+}
+
+cmd="${1:-help}"
+case "$cmd" in
+  start)
+    build_incremental
+    open_map
+    ;;
+  update)
+    build_incremental
+    ;;
+  open)
+    open_map
+    ;;
+  serve)
+    serve_map
+    ;;
+  doctor)
+    doctor
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "未知命令: $cmd"
+    usage
+    exit 2
+    ;;
+esac

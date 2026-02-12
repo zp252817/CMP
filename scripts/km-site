@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+KM_SCRIPT="$ROOT_DIR/scripts/km"
+SITE_DIR="${KM_SITE_DIR:-$ROOT_DIR/site}"
+
+ensure_km() {
+  if [[ ! -x "$KM_SCRIPT" ]]; then
+    echo "Missing script: $KM_SCRIPT"
+    exit 1
+  fi
+}
+
+build_site() {
+  ensure_km
+  mkdir -p "$SITE_DIR"
+  KM_OUTPUT_DIR="$SITE_DIR" "$KM_SCRIPT" update
+  cat > "$SITE_DIR/index.html" <<'EOF'
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0; url=knowledge-map.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CMP Knowledge Map</title>
+  </head>
+  <body>
+    <p>Redirecting to <a href="knowledge-map.html">knowledge-map.html</a> ...</p>
+  </body>
+</html>
+EOF
+  echo "Site generated at: $SITE_DIR"
+}
+
+commit_site() {
+  local message="${1:-chore(km): update knowledge map site}"
+  if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Not a git repository: $ROOT_DIR"
+    echo "Run: git init && git remote add origin <repo-url>"
+    exit 1
+  fi
+
+  git -C "$ROOT_DIR" add site .github/workflows/deploy-knowledge-map.yml
+  if git -C "$ROOT_DIR" diff --cached --quiet; then
+    echo "No changes to commit."
+    return 0
+  fi
+  git -C "$ROOT_DIR" commit -m "$message"
+  echo "Committed: $message"
+}
+
+push_site() {
+  if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Not a git repository: $ROOT_DIR"
+    exit 1
+  fi
+  local branch
+  branch="$(git -C "$ROOT_DIR" branch --show-current)"
+  if [[ -z "$branch" ]]; then
+    echo "Cannot detect current branch."
+    exit 1
+  fi
+  git -C "$ROOT_DIR" push origin "$branch"
+  echo "Pushed branch: $branch"
+}
+
+usage() {
+  cat <<'EOF'
+Usage: km-site <command> [args]
+
+commands:
+  build               Generate static site to ./site
+  commit [message]    Commit generated site and workflow
+  push                Push current branch to origin
+  publish [message]   build + commit + push
+  help                Show this help
+EOF
+}
+
+cmd="${1:-help}"
+case "$cmd" in
+  build)
+    build_site
+    ;;
+  commit)
+    shift || true
+    commit_site "${*:-chore(km): update knowledge map site}"
+    ;;
+  push)
+    push_site
+    ;;
+  publish)
+    shift || true
+    build_site
+    commit_site "${*:-chore(km): update knowledge map site}"
+    push_site
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    usage
+    exit 2
+    ;;
+esac

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CMP框架知识地图 - 入口</title>
+  <style>
+    :root {
+      --bg: #edf3f2;
+      --card: #ffffff;
+      --ink: #10231c;
+      --muted: #4f6d66;
+      --accent: #0f7668;
+      --line: #d5e2de;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: linear-gradient(180deg, #e6f3ef 0, var(--bg) 45%); color: var(--ink); }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 32px 18px 48px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .desc { margin: 0 0 8px; color: var(--muted); }
+    .meta-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+    .card { display: block; text-decoration: none; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 10px 24px rgba(16,35,28,.06); }
+    .title { font-size: 24px; font-weight: 700; margin: 0 0 8px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .chip { background: #dff1ec; color: var(--accent); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+    .hint { margin-top: 14px; color: var(--muted); }
+
+    .view-controls { position: fixed; top: 12px; right: 12px; z-index: 3000; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border: 1px solid #d5e2de; border-radius: 999px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(16,35,28,.12); }
+    .view-controls button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
+    .view-controls button:hover { background: #e3f2ee; }
+    .view-controls .zoom-value { font-size: 12px; color: #3b5d56; min-width: 44px; text-align: center; }
+    .zoom-root { transform-origin: top center; }
+    
+  </style>
+</head>
+<body>
+  
+  <div class="view-controls" aria-label="页面缩放工具">
+    <button type="button" data-zoom="out" title="缩小">-</button>
+    <button type="button" data-zoom="in" title="放大">+</button>
+    <button type="button" data-zoom="reset" title="重置">100%</button>
+    <span class="zoom-value" id="zoom-value">100%</span>
+  </div>
+
+  <div class="zoom-root" id="zoom-root">
+  <main class="wrap">
+    <h1>CMP框架知识地图</h1>
+    <p class="desc">点击卡片进入对应模块章节，再查看完整内容页。</p>
+    <div class="meta-top">
+      <span class="chip">模块 2 个</span>
+      <span class="chip">总章节 12 个</span>
+      <span class="chip">总学习路径 255 / 60 分钟</span>
+    </div>
+    <div class="list">
+
+    <a class="card" href="knowledge-map-chapters-environment-setup.html">
+      <div class="title">环境搭建</div>
+      <div>从文档集合生成的学习地图入口，包含章节卡片和完整内容页面。</div>
+      <div class="meta">
+        <span class="chip">章节 4 个</span>
+        <span class="chip">学习路径 124 分钟</span>
+      </div>
+      <div class="hint">点击进入</div>
+    </a>
+    <a class="card" href="knowledge-map-chapters-principle-analysis.html">
+      <div class="title">原理分析</div>
+      <div>从文档集合生成的学习地图入口，包含章节卡片和完整内容页面。</div>
+      <div class="meta">
+        <span class="chip">章节 8 个</span>
+        <span class="chip">学习路径 250 分钟</span>
+      </div>
+      <div class="hint">点击进入</div>
+    </a>
+    </div>
+  </main>
+  </div>
+  
+  <script>
+    (function () {
+      const root = document.getElementById('zoom-root');
+      if (!root) return;
+      const valueEl = document.getElementById('zoom-value');
+      const min = 0.6;
+      const max = 2.4;
+      const step = 0.1;
+      const key = "km_portal_zoom";
+      let scale = 1;
+
+      try {
+        const saved = parseFloat(localStorage.getItem(key) || "1");
+        if (!Number.isNaN(saved)) scale = saved;
+      } catch (_) {}
+
+      const clamp = (n) => Math.min(max, Math.max(min, n));
+
+      const apply = () => {
+        scale = clamp(scale);
+        if ("zoom" in root.style) {
+          root.style.zoom = String(scale);
+        } else {
+          root.style.transform = `scale(${scale})`;
+          root.style.transformOrigin = "top center";
+        }
+        if (valueEl) valueEl.textContent = `${Math.round(scale * 100)}%`;
+        try {
+          localStorage.setItem(key, String(scale));
+        } catch (_) {}
+      };
+
+      document.querySelectorAll("[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-zoom");
+          if (action === "in") scale += step;
+          if (action === "out") scale -= step;
+          if (action === "reset") scale = 1;
+          apply();
+        });
+      });
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (!(event.ctrlKey || event.metaKey)) return;
+          if (document.body.classList.contains("img-modal-open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+
+      apply();
+    })();
+  </script>
+
+</body>
+</html>

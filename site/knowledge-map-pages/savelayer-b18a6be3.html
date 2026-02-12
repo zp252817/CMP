@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>saveLayer 实现方案解析</title>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --ink: #10231c;
+      --muted: #4f6d66;
+      --accent: #0f7668;
+      --line: #d5e2de;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--ink); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 18px 42px; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .back { color: var(--accent); text-decoration: none; font-size: 14px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .chip { background: #dff1ec; color: var(--accent); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+    .section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; box-shadow: 0 8px 24px rgba(16,35,28,.05); }
+    .section-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .section-head h2 { margin: 0; font-size: 20px; }
+    .section-head span { color: var(--accent); font-size: 13px; }
+    .summary { color: #48665f; margin: 8px 0; font-size: 15px; line-height: 1.65; }
+    .points { margin: 0 0 8px; padding-left: 18px; color: #48665f; }
+    .points li { line-height: 1.65; }
+    .content { margin: 0; background: linear-gradient(180deg, #fbfefe 0%, #f7fbfa 100%); border: 1px solid var(--line); border-radius: 12px; padding: 14px; line-height: 1.7; font-size: 16px; color: #173029; }
+    .content h1, .content h2, .content h3, .content h4 { margin: 14px 0 8px; line-height: 1.35; color: #0f3028; }
+    .content h1:first-child, .content h2:first-child, .content h3:first-child, .content h4:first-child { margin-top: 0; }
+    .content h2 { font-size: 24px; font-weight: 750; }
+    .content h3 { font-size: 20px; font-weight: 700; }
+    .content h4 { font-size: 17px; font-weight: 680; color: #1b4b40; }
+    .content .auto-h3 { border-left: 4px solid #78b6a7; padding-left: 10px; }
+    .content .auto-h4 { color: #205145; }
+    .content p { margin: 0 0 9px; color: #1e3b34; }
+    .content p:last-child { margin-bottom: 0; }
+    .content ul, .content ol { margin: 0 0 10px; padding-left: 20px; }
+    .content li + li { margin-top: 6px; }
+    .content.xmind-outline { background: linear-gradient(180deg, #f8fcfb 0%, #f2f8f6 100%); }
+    .content.xmind-outline ul, .content.xmind-outline ol {
+      list-style: none;
+      margin: 8px 0 0 0;
+      padding-left: 22px;
+      border-left: 1px solid #c7ddd6;
+    }
+    .content.xmind-outline > ul, .content.xmind-outline > ol {
+      border-left: none;
+      padding-left: 0;
+      margin-top: 0;
+    }
+    .content.xmind-outline li {
+      position: relative;
+      margin: 8px 0;
+      padding: 6px 10px;
+      background: #ffffff;
+      border: 1px solid #d6e7e2;
+      border-radius: 10px;
+      box-shadow: 0 1px 0 rgba(15, 87, 74, 0.06);
+    }
+    .content.xmind-outline li::before {
+      content: "";
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      width: 22px;
+      border-top: 1px solid #c7ddd6;
+      transform: translateY(-50%);
+    }
+    .content.xmind-outline > ul > li::before,
+    .content.xmind-outline > ol > li::before { display: none; }
+    .content.xmind-outline li > ul,
+    .content.xmind-outline li > ol { margin-top: 8px; }
+    .content blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid #99c6bb; background: #edf7f4; color: #375852; border-radius: 6px; }
+    .content hr { border: none; border-top: 1px dashed #b8d2cb; margin: 12px 0; }
+    .content a { color: #0b6d61; text-decoration: none; border-bottom: 1px dashed rgba(11,109,97,.35); }
+    .content a:hover { border-bottom-style: solid; }
+    .content code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+    .content :not(pre) > code { background: #e6f2ef; color: #0f5f54; border-radius: 6px; padding: 2px 6px; }
+    .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
+    .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
+    .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .content .kv-key { color: #1b5e50; font-weight: 700; }
+    .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
+    .doc-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    .doc-table th, .doc-table td { border: 1px solid #c8d8d3; padding: 8px; text-align: left; vertical-align: top; }
+    .doc-table th { background: #e8f4f0; }
+    .doc-figure { margin: 10px 0; }
+    .doc-figure img { max-width: 100%; height: auto; border: 1px solid #c8d8d3; border-radius: 8px; display: block; background: #f3f7f6; }
+    .doc-figure.xmind-figure { margin: 6px 0; }
+    .doc-figure.xmind-figure figcaption { margin-top: 8px; font-size: 13px; color: #496861; }
+    .doc-figure .img-fallback { display: none; margin-top: 6px; font-size: 12px; color: #496861; }
+    .doc-figure .img-fallback a { color: #0f7668; }
+    .doc-figure.img-load-failed .img-fallback { display: block; }
+
+    .view-controls { position: fixed; top: 12px; right: 12px; z-index: 3000; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border: 1px solid #d5e2de; border-radius: 999px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(16,35,28,.12); }
+    .view-controls button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; font-size: 14px; }
+    .view-controls button:hover { background: #e3f2ee; }
+    .view-controls .zoom-value { font-size: 12px; color: #3b5d56; min-width: 44px; text-align: center; }
+    .zoom-root { transform-origin: top center; }
+    
+
+    .doc-figure img { cursor: zoom-in; }
+    .img-modal { position: fixed; inset: 0; display: none; z-index: 4000; }
+    .img-modal.open { display: block; }
+    .img-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 18, .85); }
+    .img-modal-toolbar { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; gap: 6px; align-items: center; background: rgba(255,255,255,.95); border-radius: 999px; padding: 6px 8px; }
+    .img-modal-toolbar button { border: 1px solid #c6d8d3; background: #f3faf8; color: #0f7668; border-radius: 999px; min-width: 30px; height: 30px; cursor: pointer; }
+    .img-modal-toolbar .zoom-value { min-width: 44px; text-align: center; font-size: 12px; color: #3b5d56; }
+    .img-modal-image-wrap { position: absolute; inset: 64px 24px 24px; display: grid; place-items: center; overflow: auto; cursor: grab; user-select: none; touch-action: none; }
+    .img-modal-image-wrap.dragging { cursor: grabbing; }
+    .img-modal-image-wrap img { max-width: 100%; max-height: 100%; transform-origin: center center; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+    
+  </style>
+</head>
+<body>
+  
+  <div class="view-controls" aria-label="页面缩放工具">
+    <button type="button" data-zoom="out" title="缩小">-</button>
+    <button type="button" data-zoom="in" title="放大">+</button>
+    <button type="button" data-zoom="reset" title="重置">100%</button>
+    <span class="zoom-value" id="zoom-value">100%</span>
+  </div>
+
+  <div class="zoom-root" id="zoom-root">
+  <main class="wrap">
+    <div class="top">
+      <a class="back" href="../knowledge-map.html">返回入口</a>
+      <a class="back" id="chapter-back-link" href="../knowledge-map-chapters.html">返回章节列表</a>
+    </div>
+    <h1>saveLayer 实现方案解析</h1>
+    <div class="meta">
+      <span class="chip">CMP框架知识地图</span>
+      <span class="chip">58 分钟</span>
+      <span class="chip">principle-analysis/saveLayer 实现方案解析.docx</span>
+    </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>saveLayer 实现方案解析</h2>
+          <span>58 分钟</span>
+        </div>
+        <p class="summary">saveLayer 实现方案解析 文档目标：从渲染管线原理出发，由浅入深地剖析 saveLayer 在 OHRender 渲染路线中的完整实现链路 涵盖层次：Kotlin (...</p>
+        <ul class="points"><li>渲染管线原理：saveLayer 的作用</li><li>实现链路总览</li><li>第一层：Kotlin/Compose 侧</li><li>第二层：Skiko JNI 桥接</li></ul>
+        <div class="content rich"><h1><strong>saveLayer 实现方案解析</strong></h1>
+<p><strong>文档目标</strong>：从渲染管线原理出发，由浅入深地剖析 <code>saveLayer</code> 在 OHRender 渲染路线中的完整实现链路</p>
+<p><strong>涵盖层次</strong>：Kotlin (Compose) → Skiko (JNI/KNI) → OHRender (C++) → HarmonyOS Native (OH_Drawing)</p>
+<p><strong>生成日期</strong>：2025年12月12日</p>
+<h2><strong>1. 渲染管线原理：saveLayer 的作用</strong></h2>
+<h3><strong>1.1 什么是 saveLayer 和 restore？</strong></h3>
+<p>在 2D 图形渲染中，<code>saveLayer</code> 和 <code>restore</code> 是一对配合使用的 API，共同实现<strong>离屏渲染</strong>（Offscreen Rendering）机制。</p>
+<h4><strong>saveLayer 的作用：</strong></h4>
+<ol>
+<li><strong>创建临时图层</strong>：在当前 Canvas 之外开辟一个新的绘图表面（Layer）</li>
+<li><strong>重定向绘制指令</strong>：后续的 <code>drawRect</code>、<code>drawPath</code> 等操作都绘制到这个临时图层</li>
+<li><strong>保存状态</strong>：将当前的变换矩阵（CTM）、裁剪区域（Clip）、Paint 属性压入状态栈</li>
+</ol>
+<h4><strong>restore 的作用：</strong></h4>
+<ol>
+<li><strong>图层合成</strong>：将离屏图层作为一个整体，应用 <code>saveLayer</code> 时指定的 <code>Paint</code> 特效（透明度、混合模式、滤镜）后，合成回主 Canvas</li>
+<li><strong>状态恢复</strong>：从状态栈中弹出之前保存的 CTM、Clip 等状态，恢复到 <code>saveLayer</code> 调用前的绘制环境</li>
+<li><strong>资源释放</strong>：销毁临时图层，释放离屏缓冲区内存</li>
+</ol>
+<p><strong>核心配合关系</strong>：</p>
+<ul>
+<li><code>saveLayer</code> 相当于"<strong>开启录制</strong>"，创建新舞台</li>
+<li>中间的绘制指令在"<strong>离屏舞台</strong>"上表演</li>
+<li><code>restore</code> 相当于"<strong>停止录制并播放</strong>"，将录制内容合成到主舞台</li>
+</ul>
+<h3><strong>1.2 为什么需要 saveLayer？</strong></h3>
+<p><strong>问题场景</strong>：假设要绘制两个重叠的半透明矩形</p>
+<pre><code>// ❌ 不使用 saveLayer（错误效果）
+canvas.drawRect(rect1, Paint().apply { alpha = 128 })
+canvas.drawRect(rect2, Paint().apply { alpha = 128 })
+// 结果：重叠区域会比单独区域更暗（alpha 叠加）</code></pre>
+<pre><code>// ✅ 使用 saveLayer（正确效果）
+canvas.saveLayer(bounds, Paint().apply { alpha = 128 })
+canvas.drawRect(rect1, Paint().apply { color = Color.Red })
+canvas.drawRect(rect2, Paint().apply { color = Color.Blue })
+canvas.restore()
+// 结果：两个矩形先在图层上以不透明方式绘制，然后整个图层以 50% 透明度合成</code></pre>
+<h3><strong>1.3 渲染管线视角的三层理解</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>层次</th><th>概念</th><th>物理实现</th></tr></thead><tbody><tr><td>逻辑层 (Compose)</td><td>保存 CTM/Clip 状态，开启&quot;离屏录制&quot;</td><td>状态栈压入，标记 isLayer=true</td></tr><tr><td>执行层 (渲染引擎)</td><td>切换 Render Target，临时缓冲区接收绘制</td><td>GPU 命令缓冲区切换，FBO (FrameBuffer Object) 分配</td></tr><tr><td>物理层 (HarmonyOS)</td><td>系统级离屏 Canvas 创建</td><td>OH_Drawing_CanvasSaveLayer 调用，内存缓冲分配</td></tr></tbody></table></div>
+<p><strong>关键原理</strong>：</p>
+<ul>
+<li><strong>抗锯齿裁剪</strong>：复杂裁剪（圆角、Path）的边缘需要平滑处理，<code>saveLayer</code> 确保先在图层内绘制完整内容，再统一应用抗锯齿裁剪</li>
+<li><strong>群组透明</strong>：多个图形作为整体应用透明度，避免重叠区域透明度累加</li>
+<li><strong>滤镜效果</strong>：<code>ColorFilter</code>、<code>ImageFilter</code> 等需要在独立图层上生效</li>
+</ul>
+<h2><strong>2. 实现链路总览</strong></h2>
+<figure class="doc-figure"><img src="../knowledge-map-assets/savelayer-b18a6be3-d4d267ce33.png" alt="saveLayer 实现方案解析 图示" /></figure>
+<p><strong>完整路径</strong>：</p>
+<ol>
+<li><strong>Kotlin</strong> → <code>androidx.compose.ui.graphics.Canvas.saveLayer</code></li>
+<li><strong>Skiko</strong> → <code>org.jetbrains.skia.Canvas.saveLayer</code> (Kotlin/Native)</li>
+<li><strong>JNI</strong> → <code>Canvas.cc::org_jetbrains_skia_Canvas__1nSaveLayerRect</code></li>
+<li><strong>OHRender</strong> → <code>SkCanvas.cpp::internalSaveLayer</code></li>
+<li><strong>HarmonyOS</strong> → <code>OH_Drawing_CanvasSaveLayer</code> (系统 Native API)</li>
+</ol>
+<hr />
+<h2><strong>3. 第一层：Kotlin/Compose 侧</strong></h2>
+<h3><strong>3.1 接口定义</strong></h3>
+<p><strong>文件位置</strong>：</p>
+<p><code>compose/ui/ui-graphics/src/commonMain/kotlin/androidx/compose/ui/graphics/Canvas.kt</code></p>
+<pre><code>interface Canvas {
+/**
+* Saves a copy of the current transform and clip on the save stack, and then
+* creates a new group which subsequent calls will become a part of. When the
+* save stack is later popped, the group will be flattened into a layer and
+* have the given `paint`'s [Paint.colorFilter] and [Paint.blendMode]
+* applied.
+*/
+fun saveLayer(bounds: Rect, paint: Paint)
+}</code></pre>
+<p><strong>关键点</strong>：</p>
+<ul>
+<li><code>bounds</code>：图层的边界矩形，限定离屏渲染区域（可优化内存占用）</li>
+<li><code>paint</code>：合成时应用的画笔属性（透明度、混合模式、滤镜等）</li>
+</ul>
+<h3><strong>3.2 实现类</strong></h3>
+<p><strong>文件位置</strong>：</p>
+<p><code>compose/ui/ui-graphics/src/skikoMain/kotlin/androidx/compose/ui/graphics/SkiaBackedCanvas.skiko.kt</code></p>
+<h4><strong>saveLayer 实现</strong></h4>
+<pre><code>internal class SkiaBackedCanvas(val skia: org.jetbrains.skia.Canvas) : Canvas {
+override fun saveLayer(bounds: Rect, paint: Paint) {
+if (EnableSkiaBackedCanvasLog) {
+kLog("[SkiaBackedCanvas] saveLayer $bounds")
+}
+skia.saveLayer(
+bounds.left,
+bounds.top,
+bounds.right,
+bounds.bottom,
+paint.skia // 转换为 Skiko 的 Paint 对象
+)
+}
+}</code></pre>
+<h4><strong>restore 实现</strong></h4>
+<pre><code>internal class SkiaBackedCanvas(val skia: org.jetbrains.skia.Canvas) : Canvas {
+override fun restore() {
+if (EnableSkiaBackedCanvasLog) {
+kLog("[SkiaBackedCanvas] restore")
+}
+skia.restore() // 调用 Skiko 的 restore，触发图层合成
+}
+}</code></pre>
+<p><strong>职责</strong>：</p>
+<ol>
+<li><strong>saveLayer</strong>：将 Compose 的 <code>Rect</code>/<code>Paint</code> 类型转换为 Skiko 的原生类型</li>
+<li><strong>restore</strong>：无需参数，直接调用 Skiko 的 <code>restore()</code> 方法</li>
+<li>可选地输出调试日志（通过 <code>EnableSkiaBackedCanvasLog</code> 开关）</li>
+</ol>
+<hr />
+<h2><strong>4. 第二层：Skiko JNI 桥接</strong></h2>
+<h3><strong>4.1 JNI 入口</strong></h3>
+<p><strong>文件位置</strong>：<code>skiko/src/nativeJsMain/cpp/Canvas.cc</code></p>
+<h4><strong>saveLayer JNI 绑定</strong></h4>
+<pre><code>SKIKO_EXPORT KInt org_jetbrains_skia_Canvas__1nSaveLayerRect(
+KNativePointer ptr, // Canvas 指针
+KFloat left, KFloat top, // 矩形边界
+KFloat right, KFloat bottom,
+KNativePointer paintPtr // Paint 指针
+) {
+// 1. 指针类型恢复
+SkCanvas* canvas = reinterpret_cast&lt;SkCanvas*&gt;(ptr);
+SkPaint* paint = reinterpret_cast&lt;SkPaint*&gt;(paintPtr);
+// 2. 构造矩形
+SkRect bounds {left, top, right, bottom};
+// 3. 调用 OHRender 的 C++ 实现
+return canvas-&gt;saveLayer(&amp;bounds, paint);
+}</code></pre>
+<h4><strong>restore JNI 绑定</strong></h4>
+<pre><code>SKIKO_EXPORT void org_jetbrains_skia_Canvas__1nRestore(KNativePointer ptr) {
+// 直接调用 SkCanvas 的 restore 方法
+reinterpret_cast&lt;SkCanvas*&gt;(ptr)-&gt;restore();
+}</code></pre>
+<p><strong>关键机制</strong>：</p>
+<ul>
+<li><strong>指针传递</strong>：Kotlin/Native 侧通过 <code>Long</code> 类型传递 C++ 对象的内存地址</li>
+</ul>
+<h4><strong>saveLayer 公共接口</strong></h4>
+<pre><code>int SkCanvas::saveLayer(const SkRect* bounds, const SkPaint* paint) {
+return this-&gt;saveLayer(SaveLayerRec(bounds, paint, 0));
+}
+int SkCanvas::saveLayer(const SaveLayerRec&amp; rec) {
+TRACE_EVENT0("skia", TRACE_FUNC);
+SaveLayerStrategy strategy = this-&gt;getSaveLayerStrategy(rec);
+this-&gt;willSaveLayer(rec);
+if (strategy == kFullLayer_SaveLayerStrategy) {
+this-&gt;internalSaveLayer(rec, strategy);
+}
+return this-&gt;getSaveCount() - 1;
+}</code></pre>
+<h4><strong>restore 公共接口</strong></h4>
+<pre><code>void SkCanvas::restore() {
+// 处理子 Canvas 的情况（用于某些特殊渲染路径）
+if (fSubCanvas &amp;&amp; fSubCanvas-&gt;getSaveCount() == 1) {
+finishSubCanvas();
+fNeedCreateSubCanvas = true;
+}
+if (fSubCanvas) {
+SkASSERT(fSubCanvas-&gt;getSaveCount() &gt; 1);
+fSubCanvas-&gt;restore();
+return;
+}
+// 检查栈深度，防止 underflow
+if (fSaveCount &gt; fInitSaveCount) {
+fSaveCount -= 1;
+this-&gt;internalRestore(); // 调用内部实现
+}
+Rec(bounds, paint, 0));
+}
+int SkCanvas::saveLayer(const SaveLayerRec&amp; rec) {
+TRACE_EVENT0("skia", TRACE_FUNC);
+SaveLayerStrategy strategy = this-&gt;getSaveLayerStrategy(rec);
+this-&gt;willSaveLayer(rec);
+if (strategy == kFullLayer_SaveLayerStrategy) {
+this-&gt;internalSaveLayer(rec, strategy);
+}
+return this-&gt;getSaveCount() - 1;
+}</code></pre>
+<h3><strong>5.2 核心实现：internalSaveLayer</strong></h3>
+<p><strong>文件位置</strong>：<code>OHRender/src/core/SkCanvas.cpp</code> (行 1052-1147)</p>
+<pre><code>void SkCanvas::internalSaveLayer(const SaveLayerRec&amp; rec, SaveLayerStrategy strategy) {
+TRACE_EVENT0("skia", TRACE_FUNC);
+// === 1. 状态压栈 ===
+fSaveCount += 1;
+CanvasState state;
+state.fIsLayer = true;
+state.fSaveLayerFlag = true;
+state.fNotInv = fNotInv;
+state.fClip = fCullRect; // 当前裁剪区域
+state.fTransform = fCTM; // 当前变换矩阵
+state.fInvTransform = fInvCTM; // 逆变换矩阵
+state.fClipShape = fClipShape; // 裁剪形状
+state.fPendingDifferenceShape = fPendingDifferenceShape;
+if (rec.fPaint) {
+state.fPaint = *rec.fPaint;
+state.fPaint-&gt;setMaskFilter(nullptr); // MaskFilter 在合成时应用
+state.fPaint-&gt;setAntiAlias(true);
+}
+fStateStack.push_back(state); // 压入状态栈
+// === 2. 裁剪区域更新 ===
+bool needHashClip = false;
+bool needHashBounds = false;
+if (rec.fBounds) {
+if (fCullRect.has_value()) {
+auto realBounds = fCTM.mapRect(*rec.fBounds); // 变换到设备坐标
+if (realBounds.contains(fCullRect.value())) {
+needHashClip = true;
+}
+if (!fCullRect-&gt;intersect(realBounds)) {
+fCullRect = SkRect::MakeEmpty();
+} else {
+if (!needHashClip) {
+needHashClip = true;
+needHashBounds = true;
+}
+}
+} else {
+fCullRect = fCTM.mapRect(*rec.fBounds);
+needHashBounds = true;
+}
+} else {
+needHashClip = true;
+}
+// === 3. Hash 计算（用于渲染节点去重/缓存）===
+if (fEnableHash) {
+fHasher.push(HASH_UNIQUE_ID);
+fHasher.push(fCTM.hash());
+if (needHashClip) {
+fHasher.push(GetClipShapeHash(fClipShape));
+fHasher.push(GetClipShapeHash(fPendingDifferenceShape));
+}
+if (needHashBounds) {
+fHasher.pushArray(rec.fBounds, 1);
+}
+if (state.fPaint) {
+fHasher.push(state.fPaint-&gt;hash());
+}
+}
+// === 4. 绘制边界更新 ===
+if (PaintMayAffectTransparentBlack(rec.fPaint)) {
+if (fCullRect.has_value() &amp;&amp; fDrawBounds.has_value()) {
+fDrawBounds-&gt;join(fCullRect.value());
+} else {
+fDrawBounds = std::nullopt; // 图层可能影响透明区域
+}
+}
+// === 5. 渲染成本计算（Raster Cache 决策）===
+if (OHRenderNode::gEnableRasterCache &amp;&amp; !fForbidRasterCache &amp;&amp; !fCullRect-&gt;isEmpty()) {
+float costPerPixel = 1 + 1; // 默认：读取 + 写入
+if (state.fPaint) {
+costPerPixel = state.fPaint-&gt;computePerPixelCost(fCullRect.value());
+}
+float thisCost = fCullRect-&gt;width() * fCullRect-&gt;height() * (costPerPixel + 1);
+fDrawCost += thisCost;
+if (thisCost &gt; 10) {
+fDrawCost += doRealClipCost(); // 复杂裁剪的额外成本
+}
+}
+// === 6. Paint 属性同步到 HarmonyOS Painter ===
+if (state.fPaint) {
+state.fPaint-&gt;updateOHPainter();
+}
+// === 7. 调用 HarmonyOS 系统 API ===
+OH_Drawing_CanvasSaveLayer(
+fDrawingCanvas,
+(const OH_Drawing_Rect *)rec.fBounds,
+(state.fPaint ? (OH_Drawing_Brush *)(*state.fPaint) : nullptr)
+);
+}</code></pre>
+<h3><strong>5.3 Paint 属性映射</strong></h3>
+<p><strong>文件位置</strong>：<code>OHRender/src/core/SkPaint.cpp</code></p>
+<pre><code>void SkPaint::updateOHPainter() const {
+hasUpdate = true;
+gOHPainter.updateOHPainter(*this);
+}
+void OHPainter::updateOHPainter(const SkPaint &amp;painter) {
+// === PathEffect ===
+{
+OH_Drawing_PathEffect *newEffect = nullptr;
+if (painter.fPathEffect) {
+newEffect = *as_PEB(painter.fPathEffect);
+}
+if (newEffect != fPathEffect) {
+OH_Drawing_PenSetPathEffect(fOHPen, newEffect);
+fPathEffect = newEffect;
+}
+}
+// === ShaderEffect ===
+{
+OH_Drawing_ShaderEffect *newEffect = nullptr;
+if (painter.fShader) {
+newEffect = *as_SB(painter.fShader);
+}
+if (newEffect != fShaderEffect) {
+OH_Drawing_PenSetShaderEffect(fOHPen, newEffect);
+OH_Drawing_BrushSetShaderEffect(fOHBrush, newEffect);
+fShaderEffect = newEffect;
+}
+}
+// === Filter (Mask/Color/Image) ===
+bool filterHasChange = false;
+{
+OH_Drawing_MaskFilter *newFilter = nullptr;
+if (painter.fMaskFilter) {
+newFilter = *as_MFB(painter.fMaskFilter);
+}
+if (newFilter != fMashFilter) {
+OH_Drawing_FilterSetMaskFilter(fOHFilter, newFilter);
+fMashFilter = newFilter;
+filterHasChange = true;
+}
+}
+// ... ColorFilter、ImageFilter 类似处理 ...
+if (filterHasChange) {
+OH_Drawing_PenSetFilter(fOHPen, fOHFilter);
+OH_Drawing_BrushSetFilter(fOHBrush, fOHFilter);
+}
+// === BlendMode ===
+auto blendMode = painter.asBlendMode();
+if (blendMode) {
+SkBlendMode b = blendMode.value();
+OH_Drawing_PenSetBlendMode(fOHPen, (OH_Drawing_BlendMode)b);
+OH_Drawing_BrushSetBlendMode(fOHBrush, (OH_Drawing_BlendMode)b);
+}
+// === 基础属性 ===
+OH_Drawing_PenSetColor(fOHPen, painter.getColor());
+OH_Drawing_BrushSetColor(fOHBrush, painter.getColor());
+}</code></pre>
+<h3><strong>5.4 核心实现：internalRestore</strong></h3>
+<p><strong>文件位置</strong>：<code>OHRender/src/core/SkCanvas.cpp</code> (行 1199-1215)</p>
+<pre><code>void SkCanvas::internalRestore() {
+// === 1. 获取栈顶状态 ===
+auto&amp; topLayer = fStateStack.back();
+// === 2. 裁剪状态检查（用于 Raster Cache 优化）===
+if (OHRenderNode::gEnableRasterCache &amp;&amp;
+!fForbidRasterCache &amp;&amp;
+fNowDrawClipShape != topLayer.fClipShape) {
+fNeedDoClip = true; // 标记需要重新应用裁剪
+}
+// === 3. 恢复画布状态 ===
+fNotInv = topLayer.fNotInv; // 恢复矩阵可逆性标志
+fCTM = topLayer.fTransform; // 恢复变换矩阵
+fInvCTM = topLayer.fInvTransform; // 恢复逆变换矩阵
+fCullRect = topLayer.fClip; // 恢复裁剪矩形
+fClipShape = topLayer.fClipShape; // 恢复裁剪形状
+fPendingDifferenceShape = topLayer.fPendingDifferenceShape;// 恢复待处理的差集裁剪
+// === 4. Hash 更新（用于渲染节点缓存）===
+if (topLayer.fSaveLayerFlag &amp;&amp; fEnableHash) {
+fHasher.push(HASH_UNIQUE_ID); // 记录 restore 操作到 Hash
+}
+// === 5. 弹出状态栈 ===
+fStateStack.pop_back();
+// === 6. 调用 HarmonyOS 系统 API ===
+// 如果是 saveLayer，会触发图层合成；如果是普通 save，仅恢复状态
+OH_Drawing_CanvasRestore(fDrawingCanvas);
+}</code></pre>
+<p><strong>关键逻辑</strong>：</p>
+<ol>
+<li><strong>状态恢复顺序</strong>：必须先恢复内存中的状态（CTM、Clip），再调用系统 API</li>
+<li><strong>图层合成</strong>：<code>OH_Drawing_CanvasRestore</code> 内部会判断栈顶是否为 Layer，如果是则执行合成</li>
+<li><strong>裁剪优化</strong>：检测裁剪形状变化，用于 Raster Cache 的失效判断</li>
+<li><strong>栈平衡</strong>：每次 <code>restore</code> 必须对应一次 <code>save</code> 或 <code>saveLayer</code></li>
+</ol>
+<p>OH_Drawing_PenSetWidth(fOHPen, painter.getStrokeWidth());</p>
+<p>OH_Drawing_PenSetMiterLimit(fOHPen, painter.getStrokeMiter());</p>
+<p>OH_Drawing_PenSetAntiAlias(fOHPen, painter.isAntiAlias());</p>
+<p>OH_Drawing_CanvasRestore 系统 API</p>
+<p><strong>API 签名</strong>（根据 OpenHarmony 文档）：</p>
+<pre><code>/**
+* @brief Restores the canvas state from the save stack.
+* If the saved state was created by OH_Drawing_CanvasSaveLayer,
+* this will also composite the layer back to the parent canvas.
+*
+* @param canvas Pointer to an OH_Drawing_Canvas object.
+*
+* @syscap SystemCapability.Graphic.Graphic2D.NativeDrawing
+*/
+void OH_Drawing_CanvasRestore(OH_Drawing_Canvas* canvas);</code></pre>
+<p><strong>系统行为</strong>：</p>
+<ol>
+<li><strong>状态恢复</strong>：</li>
+</ol>
+<ul>
+<li>从内部栈中弹出保存的状态（CTM、Clip 等）</li>
+<li>恢复到 <code>save()</code> 或 <code>saveLayer()</code> 调用前的绘制环境</li>
+</ul>
+<ol>
+<li><strong>图层合成</strong>（仅当栈顶为 Layer 时）：</li>
+</ol>
+<ul>
+<li>将离屏缓冲区作为纹理，应用 <code>saveLayer</code> 时指定的 <code>brush</code> 属性</li>
+<li>执行 GPU Blend 操作（Alpha、BlendMode、Filter）</li>
+<li>将合成结果绘制到父 Canvas</li>
+</ul>
+<ol>
+<li><strong>资源清理</strong>：</li>
+</ol>
+<ul>
+<li>释放离屏缓冲区内存</li>
+<li>销毁临时的渲染目标（FBO）</li>
+</ul>
+<h3><strong>6.4 典型调用流程</strong></h3>
+<pre><code>// === 创建图层 ===
+OH_Drawing_Rect layerBounds = {0, 0, 200, 200};
+OH_Drawing_Brush* layerBrush = OH_Drawing_BrushCreate();
+OH_Drawing_BrushSetAlpha(layerBrush, 128); // 50% 透明
+OH_Drawing_BrushSetBlendMode(layerBrush, BLEND_MODE_SRC_OVER);
+int saveCount = OH_Drawing_CanvasSaveLayer(canvas, &amp;layerBounds, layerBrush);
+// === 在图层上绘制 ===
+OH_Drawing_CanvasDrawRect(canvas, &amp;rect1);
+OH_Drawing_CanvasDrawCircle(canvas, x, y, radius);
+// === 恢复并合成图层 ===
+OH_Drawing_CanvasRestore(canvas);
+// ↑ 内部执行：
+// 1. 弹出状态栈
+// 2. 应用 layerBrush 的 Alpha/BlendMode 进行图层合成
+// 3. 释放离屏缓冲区</code></pre>
+<p><strong>关键时序</strong>：</p>
+<pre><code>OH_Drawing_CanvasSaveLayer → 创建离屏缓冲 + 切换渲染目标
+↓ 绘制指令写入离屏缓冲
+↓
+OH_Drawing_CanvasRestore → 合成图层 + 恢复状态 + 释放资源</code></pre>
+<ul>
+<li><strong>增量更新</strong>：只有发生变化的属性才调用 HarmonyOS API（避免重复设置）</li>
+<li><strong>全局 Painter</strong>：<code>gOHPainter</code> 是全局单例，管理 <code>OH_Drawing_Pen</code> 和 <code>OH_Drawing_Brush</code></li>
+<li><strong>类型映射</strong>：Skia 的 <code>SkBlendMode</code>、<code>SkStrokeCap</code> 等枚举直接映射到 HarmonyOS 的对应枚举</li>
+</ul>
+<hr />
+<h2><strong>6. 第四层：HarmonyOS Native API</strong></h2>
+<h3><strong>6.1 系统调用</strong></h3>
+<p><strong>API 签名</strong>（根据 OpenHarmony 文档）：</p>
+<pre><code>/**
+* @brief Saves the current canvas state (including clip and transformation) onto the save stack
+* and creates a new layer with specified bounds and brush properties.
+*
+* @param canvas Pointer to an OH_Drawing_Canvas object.
+* @param bounds Optional. Pointer to an OH_Drawing_Rect that defines the layer bounds.
+* If nullptr, the layer uses the entire canvas.
+* @param brush Optional. Pointer to an OH_Drawing_Brush for layer composition.
+* Controls alpha, blend mode, color filter, etc. when the layer is restored. *
+* @return The save count (depth of the save stack).
+*
+* @syscap SystemCapability.Graphic.Graphic2D.NativeDrawing
+*/
+int OH_Drawing_CanvasSaveLayer(
+OH_Drawing_Canvas* canvas,
+const OH_Drawing_Rect* bounds,
+const OH_Drawing_Brush* brush
+);</code></pre>
+<h3><strong>6.2 系统行为</strong></h3>
+<p>图层生命周期</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/savelayer-b18a6be3-9cde1e68b3.png" alt="saveLayer 实现方案解析 图示" /></figure>
+<h3><strong>7.4 关键数据传递</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>阶段</th><th>数据</th><th>来源</th><th>目标</th></tr></thead><tbody><tr><td>Kotlin → Skiko</td><td>Rect , Paint</td><td>Compose 对象</td><td>Skiko 包装对象</td></tr><tr><td>Skiko → JNI</td><td>指针地址 ( Long )</td><td>Kotlin/Native</td><td>C++ 指针</td></tr><tr><td>OHRender → HarmonyOS</td><td>OH_Drawing_Rect* , OH_Drawing_Brush*</td><td>SkPaint 映射</td><td>系统 API</td></tr><tr><td>HarmonyOS → GPU</td><td>离屏缓冲区句柄</td><td>系统分配</td><td>GPU FBO</td></tr><tr><td>restore 触发</td><td>图层纹理 + Brush 属性</td><td>离屏缓冲</td><td>GPU Blend 单元</td></tr></tbody></table></div>
+<ol>
+<li><strong>合成参数记录</strong>：</li>
+</ol>
+<ul>
+<li>保存 <code>brush</code> 的属性（Alpha、BlendMode、Filter）</li>
+<li><code>restore()</code> 时应用这些属性进行图层合成</li>
+</ul>
+<ol>
+<li><strong>栈管理</strong>：</li>
+</ol>
+<ul>
+<li>返回当前栈深度（<code>saveCount</code>）</li>
+<li>必须调用 <code>OH_Drawing_CanvasRestore()</code> 平衡</li>
+</ul>
+<h3><strong>6.3 典型调用流程</strong></h3>
+<pre><code>// === 创建图层 ===
+OH_Drawing_Rect layerBounds = {0, 0, 200, 200};
+OH_Drawing_Brush* layerBrush = OH_Drawing_BrushCreate();
+OH_Drawing_BrushSetAlpha(layerBrush, 128); // 50% 透明
+OH_Drawing_BrushSetBlendMode(layerBrush, BLEND_MODE_SRC_OVER);
+int saveCount = OH_Drawing_CanvasSaveLayer(canvas, &amp;layerBounds, layerBrush);
+// === 在图层上绘制 ===
+OH_Drawing_CanvasDrawRect(canvas, &amp;rect1);
+OH_Drawing_CanvasDrawCircle(canvas, x, y, radius);
+// === 恢复并合成图层 ===
+OH_Drawing_CanvasRestore(canvas); // 应用 layerBrush 的属性</code></pre>
+<hr />
+<h2><strong>7. 数据流与状态管理</strong></h2>
+<h3><strong>7.1 状态栈结构</strong></h3>
+<pre><code>// OHRender/include/core/SkCanvas.h
+struct CanvasState {
+bool fIsLayer; // 是否为 Layer 状态
+bool fSaveLayerFlag; // saveLayer 标记
+bool fNotInv; // 变换矩阵是否可逆
+std::optional&lt;SkRect&gt; fClip; // 裁剪矩形
+SkMatrix fTransform; // 变换矩阵 (CTM)
+SkMatrix fInvTransform; // 逆变换矩阵
+SkClipShape fClipShape; // 裁剪形状（Rect/RRect/Path）
+SkClipShape fPendingDifferenceShape; // 待应用的差集裁剪
+std::optional&lt;SkPaint&gt; fPaint; // 合成时使用的 Paint
+};
+class SkCanvas {
+std::vector&lt;CanvasState&gt; fStateStack; // 状态栈
+int fSaveCount; // 保存计数
+// ...
+};</code></pre>
+<h3><strong>7.2 状态流转</strong></h3>
+<figure class="doc-figure"><img src="../knowledge-map-assets/savelayer-b18a6be3-e3bae9c953.png" alt="saveLayer 实现方案解析 图示" /></figure>
+<h3><strong>7.3 关键数据传递</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>阶段</th><th>数据</th><th>来源</th><th>目标</th></tr></thead><tbody><tr><td>Kotlin → Skiko</td><td>Rect , Paint</td><td>Compose 对象</td><td>Skiko 包装对象</td></tr><tr><td>Skiko → JNI</td><td>指针地址 ( Long )</td><td>Kotlin/Native</td><td>C++ 指针</td></tr><tr><td>OHRender → HarmonyOS</td><td>OH_Drawing_Rect* , OH_Drawing_Brush*</td><td>SkPaint 映射</td><td>系统 API</td></tr><tr><td>HarmonyOS → GPU</td><td>离屏缓冲区句柄</td><td>系统分配</td><td>GPU FBO</td></tr><tr><td>restore 触发</td><td>图层纹理 + Brush 属性</td><td>离屏缓冲</td><td>GPU Blend 单元</td></tr></tbody></table></div>
+<h3><strong>7.4 完整跨层时序图</strong></h3>
+<p>以下时序图展示了从应用层调用 <code>saveLayer</code> 到 <code>restore</code> 完成图层合成的完整流程，涵盖所有架构层次：</p>
+<figure class="doc-figure"><img src="../knowledge-map-assets/savelayer-b18a6be3-04e8132251.png" alt="saveLayer 实现方案解析 图示" /></figure>
+<p><strong>时序图关键点说明</strong>：</p>
+<ol>
+<li><strong>阶段划分</strong>：</li>
+</ol>
+<ul>
+<li><strong>蓝色区域</strong>：saveLayer 创建图层（~10-20 步骤）</li>
+<li><strong>黄色区域</strong>：绘制指令执行（可多次调用）</li>
+<li><strong>红色区域</strong>：restore 合成图层（~15 步骤）</li>
+</ul>
+<ol>
+<li><strong>跨层调用链</strong>：</li>
+</ol>
+<pre><code>Compose App → Kotlin → Skiko → JNI → C++ → HarmonyOS → GPU</code></pre>
+<p>每一层都有明确的职责和边界</p>
+<ol>
+<li><strong>关键节点</strong>：</li>
+</ol>
+<ul>
+<li><strong>状态栈操作</strong>：<code>push</code> 在 saveLayer，<code>pop</code> 在 restore</li>
+<li><strong>Paint 映射</strong>：发生在 <code>updateOHPainter</code>，一次性同步所有属性</li>
+<li><strong>GPU 切换</strong>：saveLayer 时创建 FBO，restore 时销毁</li>
+</ul>
+<ol>
+<li><strong>异步特性</strong>：</li>
+</ol>
+<ul>
+<li>绘制指令通常是异步的（GPU 命令队列）</li>
+<li>但 saveLayer/restore 会触发同步点（Flush）</li>
+</ul>
+<ol>
+<li><strong>性能热点</strong>：</li>
+</ol>
+<ul>
+<li><strong>离屏缓冲分配</strong>：O(width × height) 内存开销</li>
+<li><strong>GPU Blend</strong>：O(pixel_count) 计算开销</li>
+<li><strong>状态同步</strong>：多次系统 API 调用</li>
+</ul>
+<hr />
+<h2><strong>8. 性能考量与最佳实践</strong></h2>
+<h3><strong>8.1 性能成本分析</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>操作</th><th>成本</th><th>原因</th></tr></thead><tbody><tr><td>创建图层</td><td>高</td><td>内存分配（width × height × 4 字节）+ GPU FBO 创建</td></tr><tr><td>渲染切换</td><td>高</td><td>GPU 命令缓冲区 flush，丧失批处理优化</td></tr><tr><td>图层合成</td><td>中</td><td>纹理上传 + Blend 操作</td></tr><tr><td>状态管理</td><td>低</td><td>内存栈操作（几十字节）</td></tr></tbody></table></div>
+<p><strong>典型场景成本</strong>（1920×1080 全屏）：</p>
+<ul>
+<li>离屏缓冲：<code>1920 × 1080 × 4 = 8.3 MB</code></li>
+<li>GPU Flush：~1-2ms（取决于命令队列深度）</li>
+<li>Blend 操作：~0.5ms（现代 GPU）</li>
+</ul>
+<h3><strong>8.2 优化策略</strong></h3>
+<h4><strong>✅ 正确用法</strong></h4>
+<ol>
+<li><strong>限定 bounds</strong></li>
+</ol>
+<pre><code>// ✅ 只对需要的区域创建图层val bounds = Rect(100f, 100f, 300f, 300f)
+canvas.saveLayer(bounds, paint)</code></pre>
+<ol>
+<li><strong>避免嵌套</strong></li>
+</ol>
+<pre><code>// ❌ 多层嵌套成本指数增长
+canvas.saveLayer(bounds1, paint1)
+canvas.saveLayer(bounds2, paint2)
+canvas.drawRect(...)
+canvas.restore()
+canvas.restore()</code></pre>
+<ol>
+<li><strong>合理使用 BlendMode</strong></li>
+</ol>
+<pre><code>// ✅ 在图层级别应用混合模式
+canvas.saveLayer(bounds, Paint().apply {
+blendMode = BlendMode.Multiply
+})</code></pre>
+<h4><strong>❌ 常见误用</strong></h4>
+<ol>
+<li><strong>仅为保存状态而使用</strong></li>
+</ol>
+<pre><code>// ❌ 不需要图层效果时，用 save() 即可
+canvas.saveLayer(bounds, Paint()) // 浪费
+canvas.drawRect(...)
+canvas.restore()
+// ✅ 改用 save()
+canvas.save()
+canvas.drawRect(...)
+canvas.restore()</code></pre>
+<ol>
+<li><strong>全屏无界 Layer</strong></li>
+</ol>
+<pre><code>// ❌ 未指定 bounds，使用整个 Canvas
+canvas.saveLayer(null, paint) // 可能创建巨大缓冲区</code></pre>
+<h3><strong>8.3 Raster Cache 机制</strong></h3>
+<p>OHRender 提供了渲染节点缓存机制（<code>OHRenderNode::gEnableRasterCache</code>）：</p>
+<pre><code>// SkCanvas.cpp (internalSaveLayer)
+if (OHRenderNode::gEnableRasterCache &amp;&amp; !fForbidRasterCache &amp;&amp; !fCullRect-&gt;isEmpty()) {
+float costPerPixel = 1 + 1; // 读 + 写
+if (state.fPaint) {
+costPerPixel = state.fPaint-&gt;computePerPixelCost(fCullRect.value());
+}
+float thisCost = fCullRect-&gt;width() * fCullRect-&gt;height() * (costPerPixel + 1);
+fDrawCost += thisCost;
+}</code></pre>
+<p><strong>决策依据</strong>：</p>
+<ul>
+<li>成本超过阈值 → 缓存渲染结果</li>
+<li>下次相同 Hash → 直接复用缓存</li>
+</ul>
+<hr />
+<h2><strong>9. 调试与追踪</strong></h2>
+<h3><strong>9.1 日志开关</strong></h3>
+<h4><strong>Kotlin 侧</strong></h4>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>Kotlin</th><th>compose/ui/ui-graphics/.../SkiaBackedCanvas.skiko.kt</th><th>saveLayer(bounds, paint)</th><th>restore()</th></tr></thead><tbody><tr><td>JNI</td><td>skiko/src/nativeJsMain/cpp/Canvas.cc</td><td>org_jetbrains_skia_Canvas__1nSaveLayerRect</td><td>org_jetbrains_skia_Canvas__1nRestore</td></tr><tr><td>C++</td><td>OHRender/src/core/SkCanvas.cpp</td><td>internalSaveLayer(rec, strategy)</td><td>internalRestore()</td></tr><tr><td>Paint</td><td>OHRender/src/core/SkPaint.cpp</td><td>updateOHPainter()</td><td>-</td></tr><tr><td>系统</td><td>HarmonyOS SDK</td><td>OH_Drawing_CanvasSaveLayer</td><td>`OH_Drawing_CanvasRestore</td></tr></tbody></table></div>
+<h4><strong>C++侧</strong></h4>
+<pre><code>// OHRender/src/core/SkCanvas.cpp
+void SkCanvas::internalSaveLayer(...) { TRACE_EVENT0("skia", TRACE_FUNC); // Chrome Tracing 格式
+// ...
+}</code></pre>
+<h3><strong>9.2 追踪工具</strong></h3>
+<ol>
+<li><strong>HarmonyOS Profiler</strong></li>
+</ol>
+<ul>
+<li>路径：DevEco Studio → Profiler → Graphics</li>
+<li>观察项：FBO 创建次数、内存占用、Blend 操作耗时</li>
+</ul>
+<ol>
+<li><strong>Skiko 追踪</strong></li>
+</ol>
+<pre><code># 设置环境变量启用详细日志
+export SKIKO_LOG_LEVEL=TRACE</code></pre>
+<ol>
+<li><strong>HiTrace</strong></li>
+</ol>
+<pre><code>// 生成 trace 文件（需启用 TRACE_EVENT 宏）
+TRACE_EVENT_BEGIN0("rendering", "saveLayer");
+// ... 代码 ...
+TRACE_EVENT_END0("rendering", "saveLayer");</code></pre>
+<h3><strong>9.3 常见问题诊断</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>症状</th><th>可能原因</th><th>排查方法</th></tr></thead><tbody><tr><td>卡顿</td><td>频繁创建/销毁图层</td><td>用 Profiler 检查 saveLayer 调用频率</td></tr><tr><td>内存泄漏</td><td>restore() 未调用</td><td>检查状态栈深度 getSaveCount()</td></tr><tr><td>渲染错误</td><td>Paint 属性未正确映射</td><td>断点 updateOHPainter() ，检查 HarmonyOS API 调用</td></tr><tr><td>透明叠加异常</td><td>未使用 saveLayer</td><td>在重叠区域验证是否统一应用透明度</td></tr></tbody></table></div>
+<hr />
+<h2><strong>总结</strong></h2>
+<h3><strong>核心要点</strong></h3>
+<ol>
+<li><strong>分层理解</strong></li>
+</ol>
+<ul>
+<li><strong>逻辑层</strong>：Compose Canvas 接口，状态栈管理</li>
+<li><strong>执行层</strong>：OHRender 引擎，Paint 映射、Hash 计算</li>
+<li><strong>物理层</strong>：HarmonyOS Native API，离屏缓冲、GPU 合成</li>
+</ul>
+<ol>
+<li><strong>数据流转</strong></li>
+</ol>
+<pre><code>Kotlin Rect/Paint → Skiko 封装 → JNI 指针 → C++ SkCanvas → OH_Drawing API</code></pre>
+<ol>
+<li><strong>状态同步</strong></li>
+</ol>
+<ul>
+<li>CTM/Clip 压入 <code>fStateStack</code></li>
+<li>Paint 属性映射到 <code>OH_Drawing_Brush/Pen</code></li>
+<li>系统级栈由 <code>OH_Drawing_Canvas</code> 管理</li>
+</ul>
+<ol>
+<li><strong>性能优化</strong></li>
+</ol>
+<ul>
+<li>限定 <code>bounds</code> 减少内存</li>
+<li>避免嵌套 <code>saveLayer</code></li>
+<li>利用 Raster Cache 缓存重复渲染</li>
+</ul>
+<h3><strong>关键文件索引</strong></h3>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>层次</th><th>文件路径</th><th>核心函数</th></tr></thead><tbody><tr><td>Kotlin</td><td>compose/ui/ui-graphics/.../SkiaBackedCanvas.skiko.kt</td><td>saveLayer(bounds, paint)</td></tr><tr><td>JNI</td><td>skiko/src/nativeJsMain/cpp/Canvas.cc</td><td>org_jetbrains_skia_Canvas__1nSaveLayerRect</td></tr><tr><td>C++</td><td>OHRender/src/core/SkCanvas.cpp</td><td>internalSaveLayer(rec, strategy)</td></tr><tr><td>Paint</td><td>OHRender/src/core/SkPaint.cpp</td><td>updateOHPainter()</td></tr><tr><td>系统</td><td>HarmonyOS SDK</td><td>OH_Drawing_CanvasSaveLayer</td></tr></tbody></table></div>
+<hr />
+<p><strong>文档更新记录</strong></p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th>日期</th><th>版本</th><th>变更</th></tr></thead><tbody><tr><td>2025-12-12</td><td>1.0</td><td>初始版本，完整链路分析</td></tr><tr><td>2025-12-15</td><td>1.1</td><td>补充 restore 实现方案，增加图层生命周期说明</td></tr></tbody></table></div>
+<p><strong>相关文档</strong></p>
+<ul>
+<li>OpenHarmony Drawing API 官方文档</li>
+<li>Skia Canvas 参考</li>
+<li>Compose Graphics 设计文档</li>
+</ul></div>
+      </section>
+  </main>
+  </div>
+
+  <div class="img-modal" id="img-modal" aria-hidden="true">
+    <div class="img-modal-backdrop"></div>
+    <div class="img-modal-toolbar">
+      <button type="button" id="img-zoom-out" title="缩小">-</button>
+      <button type="button" id="img-zoom-in" title="放大">+</button>
+      <button type="button" id="img-zoom-reset" title="重置">100%</button>
+      <span class="zoom-value" id="img-zoom-value">100%</span>
+      <button type="button" id="img-modal-close" title="关闭">关闭</button>
+    </div>
+    <div class="img-modal-image-wrap">
+      <img id="img-modal-img" alt="" />
+    </div>
+  </div>
+
+
+  <script>
+    (function () {
+      const root = document.getElementById('zoom-root');
+      if (!root) return;
+      const valueEl = document.getElementById('zoom-value');
+      const min = 0.6;
+      const max = 2.4;
+      const step = 0.1;
+      const key = "km_detail_zoom";
+      let scale = 1;
+
+      try {
+        const saved = parseFloat(localStorage.getItem(key) || "1");
+        if (!Number.isNaN(saved)) scale = saved;
+      } catch (_) {}
+
+      const clamp = (n) => Math.min(max, Math.max(min, n));
+
+      const apply = () => {
+        scale = clamp(scale);
+        if ("zoom" in root.style) {
+          root.style.zoom = String(scale);
+        } else {
+          root.style.transform = `scale(${scale})`;
+          root.style.transformOrigin = "top center";
+        }
+        if (valueEl) valueEl.textContent = `${Math.round(scale * 100)}%`;
+        try {
+          localStorage.setItem(key, String(scale));
+        } catch (_) {}
+      };
+
+      document.querySelectorAll("[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-zoom");
+          if (action === "in") scale += step;
+          if (action === "out") scale -= step;
+          if (action === "reset") scale = 1;
+          apply();
+        });
+      });
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (!(event.ctrlKey || event.metaKey)) return;
+          if (document.body.classList.contains("img-modal-open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+
+      apply();
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const modal = document.getElementById("img-modal");
+      if (!modal) return;
+      const image = document.getElementById("img-modal-img");
+      const imageWrap = modal.querySelector(".img-modal-image-wrap");
+      const closeBtn = document.getElementById("img-modal-close");
+      const zoomOutBtn = document.getElementById("img-zoom-out");
+      const zoomInBtn = document.getElementById("img-zoom-in");
+      const zoomResetBtn = document.getElementById("img-zoom-reset");
+      const zoomValue = document.getElementById("img-zoom-value");
+      if (!image || !imageWrap) return;
+
+      let scale = 1;
+      const min = 0.2;
+      const max = 6;
+      const step = 0.15;
+      let isDragging = false;
+      let dragPointerId = null;
+      let lastX = 0;
+      let lastY = 0;
+
+      const apply = () => {
+        scale = Math.min(max, Math.max(min, scale));
+        image.style.transform = `scale(${scale})`;
+        if (zoomValue) zoomValue.textContent = `${Math.round(scale * 100)}%`;
+      };
+
+      const open = (src, alt) => {
+        image.src = src;
+        image.alt = alt || "";
+        scale = 1;
+        apply();
+        imageWrap.scrollLeft = 0;
+        imageWrap.scrollTop = 0;
+        modal.classList.add("open");
+        document.body.classList.add("img-modal-open");
+        document.body.style.overflow = "hidden";
+      };
+
+      const stopDragging = () => {
+        isDragging = false;
+        dragPointerId = null;
+        imageWrap.classList.remove("dragging");
+      };
+
+      const close = () => {
+        stopDragging();
+        modal.classList.remove("open");
+        document.body.classList.remove("img-modal-open");
+        document.body.style.overflow = "";
+        image.removeAttribute("src");
+      };
+
+      document.querySelectorAll(".doc-figure img").forEach((img) => {
+        const figure = img.closest(".doc-figure");
+        const originSrc = img.getAttribute("data-origin-src") || img.src;
+
+        const markFailed = () => {
+          if (!figure) return;
+          figure.classList.add("img-load-failed");
+          const link = figure.querySelector(".img-open-link");
+          if (link && !link.getAttribute("href")) {
+            link.setAttribute("href", originSrc);
+          }
+        };
+
+        img.addEventListener("error", () => {
+          if (img.dataset.retriedNoQuery !== "1") {
+            const noQuery = originSrc.split("?")[0];
+            if (noQuery && noQuery !== originSrc) {
+              img.dataset.retriedNoQuery = "1";
+              img.src = noQuery;
+              return;
+            }
+          }
+          markFailed();
+        });
+
+        if (img.complete && img.naturalWidth === 0) {
+          markFailed();
+        }
+
+        img.addEventListener("click", () => {
+          if (img.naturalWidth > 0) {
+            open(img.currentSrc || img.src, img.alt);
+            return;
+          }
+          if (originSrc && originSrc !== "#") {
+            window.open(originSrc, "_blank", "noopener,noreferrer");
+          }
+        });
+      });
+
+      closeBtn?.addEventListener("click", close);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal || event.target.classList.contains("img-modal-backdrop")) {
+          close();
+        }
+      });
+
+      zoomInBtn?.addEventListener("click", () => { scale += step; apply(); });
+      zoomOutBtn?.addEventListener("click", () => { scale -= step; apply(); });
+      zoomResetBtn?.addEventListener("click", () => { scale = 1; apply(); });
+
+      imageWrap.addEventListener("pointerdown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.button !== 0) return;
+        isDragging = true;
+        dragPointerId = event.pointerId;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        imageWrap.classList.add("dragging");
+        imageWrap.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      });
+
+      imageWrap.addEventListener("pointermove", (event) => {
+        if (!isDragging || event.pointerId !== dragPointerId) return;
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        imageWrap.scrollLeft -= dx;
+        imageWrap.scrollTop -= dy;
+        lastX = event.clientX;
+        lastY = event.clientY;
+      });
+
+      const onPointerDone = (event) => {
+        if (event.pointerId !== dragPointerId) return;
+        imageWrap.releasePointerCapture?.(event.pointerId);
+        stopDragging();
+      };
+
+      imageWrap.addEventListener("pointerup", onPointerDone);
+      imageWrap.addEventListener("pointercancel", onPointerDone);
+
+      modal.addEventListener(
+        "wheel",
+        (event) => {
+          if (!modal.classList.contains("open")) return;
+          event.preventDefault();
+          scale += event.deltaY < 0 ? step : -step;
+          apply();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("keydown", (event) => {
+        if (!modal.classList.contains("open")) return;
+        if (event.key === "Escape") {
+          close();
+        } else if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          scale += step;
+          apply();
+        } else if (event.key === "-") {
+          event.preventDefault();
+          scale -= step;
+          apply();
+        } else if (event.key === "0") {
+          event.preventDefault();
+          scale = 1;
+          apply();
+        }
+      });
+    })();
+  </script>
+
+
+  <script>
+    (function () {
+      const roots = document.querySelectorAll(".content.rich");
+      if (!roots.length) return;
+
+      const h3Pattern = /^(?:[一二三四五六七八九十]+[、.．]|\d+[、.．)])\s*/;
+      const h4Pattern = /^\d+\.\d+\s*/;
+      const shortTitlePattern = /(?:流程|步骤|说明|配置|命令|目录|要求|概览)$/;
+      const bulletPattern = /^[-*•]\s+/;
+      const numberItemPattern = /^\d+[.)、]\s+/;
+
+      const commandPattern =
+        /^(?:\$\s*)?(?:export|git|ohpm|npm|pnpm|yarn|npx|python|python3|java|javac|gradle|\.\/gradlew|\.\/|adb|hdc|cmake|make|brew|curl|wget|source|chmod|chown|cp|mv|ls|cat|echo)\b/i;
+      const envAssignPattern = /^(?:[A-Z_][A-Z0-9_]*=|PATH=|JAVA_HOME=|ANDROID_HOME=)/;
+      const pathLikePattern = /(?:^\/|^\.\/|https?:\/\/|[\w.-]+\/[\w./-]+)/;
+
+      const esc = (value) => {
+        const span = document.createElement("span");
+        span.textContent = value;
+        return span.innerHTML;
+      };
+
+      const isCommandLike = (text) => {
+        const sample = text.trim();
+        if (!sample) return false;
+        if (sample.length > 220) return false;
+        if (commandPattern.test(sample)) return true;
+        if (envAssignPattern.test(sample)) return true;
+        if (sample.includes(" && ") || sample.includes(" || ")) return true;
+        if (pathLikePattern.test(sample) && /\b(?:build|publish|clone|install|run|export|gradle|script)\b/i.test(sample)) {
+          return true;
+        }
+        return false;
+      };
+
+      roots.forEach((root) => {
+        const children = Array.from(root.children);
+        const rebuilt = [];
+        let codeBuffer = [];
+
+        const flushCode = () => {
+          if (!codeBuffer.length) return;
+          const pre = document.createElement("pre");
+          pre.className = "auto-code";
+          const code = document.createElement("code");
+          code.textContent = codeBuffer.join("\n");
+          pre.appendChild(code);
+          rebuilt.push(pre);
+          codeBuffer = [];
+        };
+
+        children.forEach((node) => {
+          if (node.tagName !== "P") {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          const text = (node.textContent || "").replace(/\u00A0/g, " ").trim();
+          if (!text) return;
+
+          if (h3Pattern.test(text)) {
+            flushCode();
+            const h3 = document.createElement("h3");
+            h3.className = "auto-h3";
+            h3.textContent = text;
+            rebuilt.push(h3);
+            return;
+          }
+
+          if (h4Pattern.test(text) || (text.length <= 24 && shortTitlePattern.test(text))) {
+            flushCode();
+            const h4 = document.createElement("h4");
+            h4.className = "auto-h4";
+            h4.textContent = text;
+            rebuilt.push(h4);
+            return;
+          }
+
+          const keyValue = text.match(/^([^:：]{2,20}[：:])\s*(.+)$/);
+          if (keyValue) {
+            const key = keyValue[1].trim();
+            const value = keyValue[2].trim();
+            if (value && isCommandLike(value)) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><code>${esc(value)}</code>`;
+              rebuilt.push(row);
+              return;
+            }
+            if (value && value.length <= 120) {
+              flushCode();
+              const row = document.createElement("p");
+              row.className = "kv-row";
+              row.innerHTML = `<span class="kv-key">${esc(key)}</span><span>${esc(value)}</span>`;
+              rebuilt.push(row);
+              return;
+            }
+          }
+
+          if (isCommandLike(text)) {
+            codeBuffer.push(text);
+            return;
+          }
+
+          if (bulletPattern.test(text) || numberItemPattern.test(text)) {
+            flushCode();
+            rebuilt.push(node);
+            return;
+          }
+
+          flushCode();
+          rebuilt.push(node);
+        });
+
+        flushCode();
+        root.replaceChildren(...rebuilt);
+      });
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const back = document.getElementById("chapter-back-link");
+      if (!back) return;
+      const chapter = (new URLSearchParams(window.location.search).get("chapter") || "all").trim().toLowerCase();
+      if (!/^[a-z0-9-]+$/.test(chapter) || chapter === "all") {
+        back.href = "../knowledge-map-chapters.html";
+        return;
+      }
+      back.href = `../knowledge-map-chapters-${chapter}.html`;
+    })();
+  </script>
+</body>
+</html>
