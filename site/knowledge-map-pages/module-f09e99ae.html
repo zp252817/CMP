@@ -83,6 +83,8 @@
     .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
     .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
     .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .mermaid-wrap { margin: 10px 0; overflow-x: auto; border: 1px solid #c8d8d3; border-radius: 10px; padding: 12px; background: linear-gradient(180deg, #fbfefe 0%, #f2f8f6 100%); }
+    .content .mermaid { min-width: max-content; }
     .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
     .content .kv-key { color: #1b5e50; font-weight: 700; }
     .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
@@ -663,6 +665,14 @@ parameter = js {
     })();
   </script>
 
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "default"
+    });
+  </script>
   <script>
     (() => {
       const back = document.getElementById("chapter-back-link");

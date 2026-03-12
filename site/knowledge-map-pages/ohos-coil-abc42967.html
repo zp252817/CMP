@@ -83,6 +83,8 @@
     .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
     .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
     .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .mermaid-wrap { margin: 10px 0; overflow-x: auto; border: 1px solid #c8d8d3; border-radius: 10px; padding: 12px; background: linear-gradient(180deg, #fbfefe 0%, #f2f8f6 100%); }
+    .content .mermaid { min-width: max-content; }
     .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
     .content .kv-key { color: #1b5e50; font-weight: 700; }
     .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
@@ -207,9 +209,9 @@
           <h2>3. 端到端流程（从 URL 到上屏）</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">mermaid flowchart TD A[&quot;Coil 请求图片&quot;] --&gt; B[&quot;KtorNetworkFetcher&lt;br/&gt;下载字节&quot;] B --&gt; C[&quot;Decod...</p>
-        <ul class="points"><li>mermaid</li><li>flowchart TD</li><li>A[&quot;Coil 请求图片&quot;] --&gt; B[&quot;KtorNetworkFetcher&lt;br/&gt;下载字节&quot;]</li><li>B --&gt; C[&quot;DecoderProbeFactory&lt;br/&gt;选择 SkiaImageDecoder1&quot;]</li></ul>
-        <div class="content rich"><pre><code class="language-mermaid">flowchart TD
+        <p class="summary">---</p>
+        <ul class="points"><li>---</li></ul>
+        <div class="content rich"><div class="mermaid-wrap"><div class="mermaid">flowchart TD
   A["Coil 请求图片"] --&gt; B["KtorNetworkFetcher&lt;br/&gt;下载字节"]
   B --&gt; C["DecoderProbeFactory&lt;br/&gt;选择 SkiaImageDecoder1"]
   C --&gt; D["读取 ByteArray"]
@@ -222,7 +224,7 @@
   J --&gt; K["BorrowTextureFrom&lt;br/&gt;生成 SkImage"]
   K --&gt; L["releaseSurfaceBuffer&lt;br/&gt;释放调用方引用"]
   L --&gt; M["SkiaImageAdapter 返回给 Coil"]
-  M --&gt; N["Compose/Coil drawImage 上屏"]</code></pre><hr /></div>
+  M --&gt; N["Compose/Coil drawImage 上屏"]</div></div><hr /></div>
       </section>
       <section class="section">
         <div class="section-head">
@@ -645,6 +647,14 @@
     })();
   </script>
 
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "default"
+    });
+  </script>
   <script>
     (() => {
       const back = document.getElementById("chapter-back-link");

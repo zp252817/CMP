@@ -83,6 +83,8 @@
     .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
     .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
     .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .mermaid-wrap { margin: 10px 0; overflow-x: auto; border: 1px solid #c8d8d3; border-radius: 10px; padding: 12px; background: linear-gradient(180deg, #fbfefe 0%, #f2f8f6 100%); }
+    .content .mermaid { min-width: max-content; }
     .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
     .content .kv-key { color: #1b5e50; font-weight: 700; }
     .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
@@ -135,7 +137,7 @@
     <h1>KMP工程集成鸿蒙应用完整教程</h1>
     <div class="meta">
       <span class="chip">CMP框架知识地图</span>
-      <span class="chip">99 分钟</span>
+      <span class="chip">68 分钟</span>
       <span class="chip">environment-setup/KMP工程集成鸿蒙应用完整教程.md</span>
     </div>
 
@@ -198,8 +200,8 @@
           <h2>3.1 配置Gradle依赖仓库</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">修改 settings.gradle.kts 文件，添加鸿蒙相关的Maven仓库： kotlin pluginManagement { repositories { mave...</p>
-        <ul class="points"><li>修改 settings.gradle.kts 文件，添加鸿蒙相关的Maven仓库：</li><li>kotlin</li><li>pluginManagement {</li><li>repositories {</li></ul>
+        <p class="summary">修改 settings.gradle.kts 文件，添加鸿蒙相关的Maven仓库：</p>
+        <ul class="points"><li>修改 settings.gradle.kts 文件，添加鸿蒙相关的Maven仓库：</li></ul>
         <div class="content rich"><p>修改 <code>settings.gradle.kts</code> 文件，添加鸿蒙相关的Maven仓库：</p><pre><code class="language-kotlin">pluginManagement {
     repositories {
         maven("https://kmp-ohos-test.obs.cn-south-1.myhuaweicloud.com/maven/")
@@ -234,10 +236,10 @@ dependencyResolutionManagement {
       <section class="section">
         <div class="section-head">
           <h2>3.2 配置版本依赖</h2>
-          <span>4 分钟</span>
+          <span>2 分钟</span>
         </div>
-        <p class="summary">修改 gradle/libs.versions.toml 文件，配置鸿蒙相关的版本。**关键配置**如下（其他AndroidX库使用默认配置即可）： toml [versio...</p>
-        <ul class="points"><li>修改 gradle/libs.versions.toml 文件，配置鸿蒙相关的版本。**关键配置**如下（其他AndroidX库使用默认配置即可）：</li><li>toml</li><li>[versions]</li><li>composeMultiplatform = &quot;1.6.1-ohos-003&quot;</li></ul>
+        <p class="summary">修改 gradle/libs.versions.toml 文件，配置鸿蒙相关的版本。**关键配置**如下（其他AndroidX库使用默认配置即可）： **关键版本说明**：...</p>
+        <ul class="points"><li>修改 gradle/libs.versions.toml 文件，配置鸿蒙相关的版本。**关键配置**如下（其他AndroidX库使用默认配置即可）：</li><li>**关键版本说明**：</li><li>kotlin = &quot;2.2.0-ohos-07&quot;: 支持鸿蒙的Kotlin版本（**必须使用此版本**）</li><li>composeMultiplatform = &quot;1.6.1-ohos-003&quot;: 支持鸿蒙的Compose Multiplatform版本（**必须使用此版本**）</li></ul>
         <div class="content rich"><p>修改 <code>gradle/libs.versions.toml</code> 文件，配置鸿蒙相关的版本。<strong>关键配置</strong>如下（其他AndroidX库使用默认配置即可）：</p><pre><code class="language-toml">[versions]
 composeMultiplatform = "1.6.1-ohos-003"
 kotlin = "2.2.0-ohos-07"
@@ -258,10 +260,10 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
       <section class="section">
         <div class="section-head">
           <h2>3.3 配置composeApp模块</h2>
-          <span>6 分钟</span>
+          <span>2 分钟</span>
         </div>
-        <p class="summary">修改 composeApp/build.gradle.kts，添加鸿蒙平台配置： kotlin kotlin { androidTarget { compilerOption...</p>
-        <ul class="points"><li>修改 composeApp/build.gradle.kts，添加鸿蒙平台配置：</li><li>kotlin</li><li>kotlin {</li><li>androidTarget {</li></ul>
+        <p class="summary">修改 composeApp/build.gradle.kts，添加鸿蒙平台配置： **关键配置说明**： ohosArm64: 声明鸿蒙平台目标 sharedLib: 生成共...</p>
+        <ul class="points"><li>修改 composeApp/build.gradle.kts，添加鸿蒙平台配置：</li><li>**关键配置说明**：</li><li>ohosArm64: 声明鸿蒙平台目标</li><li>sharedLib: 生成共享库(.so文件)</li></ul>
         <div class="content rich"><p>修改 <code>composeApp/build.gradle.kts</code>，添加鸿蒙平台配置：</p><pre><code class="language-kotlin">kotlin {
     androidTarget {
         compilerOptions {
@@ -355,10 +357,10 @@ arrayOf("debug", "release").forEach { type -&gt;
       <section class="section">
         <div class="section-head">
           <h2>3.4 创建鸿蒙平台代码</h2>
-          <span>6 分钟</span>
+          <span>2 分钟</span>
         </div>
-        <p class="summary">3.4.1 创建目录结构 composeApp/src/ohosArm64Main/ ├── cinterop/ │ ├── include/ │ │ ├── raw_fil...</p>
-        <ul class="points"><li>3.4.1 创建目录结构</li><li>composeApp/src/ohosArm64Main/</li><li>├── cinterop/</li><li>│ ├── include/</li></ul>
+        <p class="summary">3.4.1 创建目录结构 3.4.2 配置cinterop 创建 composeApp/src/ohosArm64Main/cinterop/resource.def: 3....</p>
+        <ul class="points"><li>3.4.1 创建目录结构</li><li>3.4.2 配置cinterop</li><li>创建 composeApp/src/ohosArm64Main/cinterop/resource.def:</li><li>3.4.3 实现平台特定代码</li></ul>
         <div class="content rich"><h4>3.4.1 创建目录结构</h4><pre><code>composeApp/src/ohosArm64Main/
 ├── cinterop/
 │   ├── include/
@@ -452,8 +454,8 @@ fun initResourceManager(resourceManager: NativeResourceManager) {
           <h2>5.1 配置build-profile.json5</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">编辑 harmonyApp/build-profile.json5： json5 { &quot;app&quot;: { &quot;signingConfigs&quot;: [ { &quot;name&quot;: &quot;defa...</p>
-        <ul class="points"><li>编辑 harmonyApp/build-profile.json5：</li><li>json5</li><li>{</li><li>&quot;app&quot;: {</li></ul>
+        <p class="summary">编辑 harmonyApp/build-profile.json5：</p>
+        <ul class="points"><li>编辑 harmonyApp/build-profile.json5：</li></ul>
         <div class="content rich"><p>编辑 <code>harmonyApp/build-profile.json5</code>：</p><pre><code class="language-json5">{
   "app": {
     "signingConfigs": [
@@ -489,8 +491,8 @@ fun initResourceManager(resourceManager: NativeResourceManager) {
           <h2>5.2 配置entry模块依赖</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">编辑 harmonyApp/entry/oh-package.json5： json5 { &quot;name&quot;: &quot;entry&quot;, &quot;version&quot;: &quot;1.0.0&quot;, &quot;des...</p>
-        <ul class="points"><li>编辑 harmonyApp/entry/oh-package.json5：</li><li>json5</li><li>{</li><li>&quot;name&quot;: &quot;entry&quot;,</li></ul>
+        <p class="summary">编辑 harmonyApp/entry/oh-package.json5： **关键依赖说明**： libentry.so: 本地C++模块 compose.har: Com...</p>
+        <ul class="points"><li>编辑 harmonyApp/entry/oh-package.json5：</li><li>**关键依赖说明**：</li><li>libentry.so: 本地C++模块</li><li>compose.har: Compose鸿蒙支持库</li></ul>
         <div class="content rich"><p>编辑 <code>harmonyApp/entry/oh-package.json5</code>：</p><pre><code class="language-json5">{
   "name": "entry",
   "version": "1.0.0",
@@ -509,8 +511,8 @@ fun initResourceManager(resourceManager: NativeResourceManager) {
           <h2>5.3 配置CMakeLists.txt</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">编辑 harmonyApp/entry/src/main/cpp/CMakeLists.txt： cmake cmake_minimum_required(VERSION 3...</p>
-        <ul class="points"><li>编辑 harmonyApp/entry/src/main/cpp/CMakeLists.txt：</li><li>cmake</li><li>cmake_minimum_required(VERSION 3.5.0)</li><li>project(harmonyApp)</li></ul>
+        <p class="summary">编辑 harmonyApp/entry/src/main/cpp/CMakeLists.txt： **关键配置说明**： 链接KMP生成的 libkn.so 共享库 链接鸿蒙...</p>
+        <ul class="points"><li>编辑 harmonyApp/entry/src/main/cpp/CMakeLists.txt：</li><li>**关键配置说明**：</li><li>链接KMP生成的 libkn.so 共享库</li><li>链接鸿蒙NDK必要的库</li></ul>
         <div class="content rich"><p>编辑 <code>harmonyApp/entry/src/main/cpp/CMakeLists.txt</code>：</p><pre><code class="language-cmake">cmake_minimum_required(VERSION 3.5.0)
 project(harmonyApp)
 
@@ -532,10 +534,10 @@ target_link_libraries(entry PUBLIC ${NATIVERENDER_ROOT_PATH}/../../../libs/arm64
       <section class="section">
         <div class="section-head">
           <h2>5.4 实现NAPI桥接代码</h2>
-          <span>5 分钟</span>
+          <span>2 分钟</span>
         </div>
-        <p class="summary">编辑 harmonyApp/entry/src/main/cpp/napi_init.cpp： cpp #include &quot;napi/native_api.h&quot; #inclu...</p>
-        <ul class="points"><li>编辑 harmonyApp/entry/src/main/cpp/napi_init.cpp：</li><li>cpp</li><li>#include &quot;napi/native_api.h&quot;</li><li>#include &quot;libkn_api.h&quot;</li></ul>
+        <p class="summary">编辑 harmonyApp/entry/src/main/cpp/napi_init.cpp： **关键代码说明**： MainArkUIViewController: 桥接...</p>
+        <ul class="points"><li>编辑 harmonyApp/entry/src/main/cpp/napi_init.cpp：</li><li>**关键代码说明**：</li><li>MainArkUIViewController: 桥接函数，调用Kotlin导出的同名函数</li><li>InitResourceManager: 初始化资源管理器，传递给Kotlin层</li></ul>
         <div class="content rich"><p>编辑 <code>harmonyApp/entry/src/main/cpp/napi_init.cpp</code>：</p><pre><code class="language-cpp">#include "napi/native_api.h"
 #include "libkn_api.h"
 #include &lt;rawfile/raw_file_manager.h&gt;
@@ -588,10 +590,10 @@ extern "C" __attribute__((constructor)) void RegisterEntryModule(void)
       <section class="section">
         <div class="section-head">
           <h2>5.5 创建ArkTS页面</h2>
-          <span>19 分钟</span>
+          <span>2 分钟</span>
         </div>
         <p class="summary">5.5.1 创建ComposeInterops.ets 首先创建 harmonyApp/entry/src/main/ets/pages/ComposeInterops.et...</p>
-        <ul class="points"><li>5.5.1 创建ComposeInterops.ets</li><li>首先创建 harmonyApp/entry/src/main/ets/pages/ComposeInterops.ets，实现ArkUI与Compose互操作组件：</li><li>typescript</li><li>import { promptAction } from &#x27;@kit.ArkUI&#x27;;</li></ul>
+        <ul class="points"><li>5.5.1 创建ComposeInterops.ets</li><li>首先创建 harmonyApp/entry/src/main/ets/pages/ComposeInterops.ets，实现ArkUI与Compose互操作组件：</li><li>**关键代码说明**：</li><li>@Builder: 定义可复用的UI构建函数</li></ul>
         <div class="content rich"><h4>5.5.1 创建ComposeInterops.ets</h4><p>首先创建 <code>harmonyApp/entry/src/main/ets/pages/ComposeInterops.ets</code>，实现ArkUI与Compose互操作组件：</p><pre><code class="language-typescript">import { promptAction } from '@kit.ArkUI';
 
 interface ButtonArgs {
@@ -876,8 +878,8 @@ struct Index {
           <h2>6.1 编译KMP共享库</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">在KMP工程根目录执行： bash</p>
-        <ul class="points"><li>在KMP工程根目录执行：</li><li>bash</li></ul>
+        <p class="summary">在KMP工程根目录执行：</p>
+        <ul class="points"><li>在KMP工程根目录执行：</li></ul>
         <div class="content rich"><p>在KMP工程根目录执行：</p><pre><code class="language-bash"></code></pre></div>
       </section>
       <section class="section">
@@ -894,8 +896,8 @@ struct Index {
           <h2>Release版本</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">./gradlew publishReleaseBinariesToHarmonyApp 此命令会： 编译鸿蒙平台的Kotlin代码 生成 libkn.so 共享库 生成 l...</p>
-        <ul class="points"><li>./gradlew publishReleaseBinariesToHarmonyApp</li><li>此命令会：</li><li>编译鸿蒙平台的Kotlin代码</li><li>生成 libkn.so 共享库</li></ul>
+        <p class="summary">./gradlew publishReleaseBinariesToHarmonyApp</p>
+        <ul class="points"><li>./gradlew publishReleaseBinariesToHarmonyApp</li></ul>
         <div class="content rich"><p>./gradlew publishReleaseBinariesToHarmonyApp</p><pre><code>
 此命令会：
 1. 编译鸿蒙平台的Kotlin代码
@@ -960,10 +962,10 @@ struct Index {
       <section class="section">
         <div class="section-head">
           <h2>八、项目结构总览</h2>
-          <span>3 分钟</span>
+          <span>2 分钟</span>
         </div>
-        <p class="summary">MyKMPApp/ ├── composeApp/ # KMP应用模块 │ ├── build.gradle.kts # 构建配置 │ └── src/ │ ├── andr...</p>
-        <ul class="points"><li>MyKMPApp/</li><li>├── composeApp/ # KMP应用模块</li><li>│ ├── build.gradle.kts # 构建配置</li><li>│ └── src/</li></ul>
+        <p class="summary"></p>
+        
         <div class="content rich"><pre><code>MyKMPApp/
 ├── composeApp/                         # KMP应用模块
 │   ├── build.gradle.kts                # 构建配置
@@ -1014,8 +1016,8 @@ struct Index {
           <h2>9.1 配置多模块</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">如果项目有多个共享模块，可以在 settings.gradle.kts 中添加： kotlin include(&quot;:composeApp&quot;) include(&quot;:shared...</p>
-        <ul class="points"><li>如果项目有多个共享模块，可以在 settings.gradle.kts 中添加：</li><li>kotlin</li><li>include(&quot;:composeApp&quot;)</li><li>include(&quot;:shared&quot;)</li></ul>
+        <p class="summary">如果项目有多个共享模块，可以在 settings.gradle.kts 中添加：</p>
+        <ul class="points"><li>如果项目有多个共享模块，可以在 settings.gradle.kts 中添加：</li></ul>
         <div class="content rich"><p>如果项目有多个共享模块，可以在 <code>settings.gradle.kts</code> 中添加：</p><pre><code class="language-kotlin">include(":composeApp")
 include(":shared")</code></pre></div>
       </section>
@@ -1024,8 +1026,8 @@ include(":shared")</code></pre></div>
           <h2>9.2 配置符号表</h2>
           <span>2 分钟</span>
         </div>
-        <p class="summary">为了便于调试崩溃，可以保留符号表： kotlin ohosArm64 { binaries.sharedLib { // 在debug和release模式，让gradle都打...</p>
-        <ul class="points"><li>为了便于调试崩溃，可以保留符号表：</li><li>kotlin</li><li>ohosArm64 {</li><li>binaries.sharedLib {</li></ul>
+        <p class="summary">为了便于调试崩溃，可以保留符号表：</p>
+        <ul class="points"><li>为了便于调试崩溃，可以保留符号表：</li></ul>
         <div class="content rich"><p>为了便于调试崩溃，可以保留符号表：</p><pre><code class="language-kotlin">ohosArm64 {
     binaries.sharedLib {
         // 在debug和release模式，让gradle都打包带符号表的so
@@ -1445,6 +1447,14 @@ include(":shared")</code></pre></div>
     })();
   </script>
 
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "default"
+    });
+  </script>
   <script>
     (() => {
       const back = document.getElementById("chapter-back-link");

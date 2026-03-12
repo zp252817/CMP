@@ -83,6 +83,8 @@
     .content pre { margin: 10px 0; white-space: pre; overflow: auto; background: #122520; color: #e8f5f1; border-radius: 10px; padding: 12px; box-shadow: inset 0 0 0 1px rgba(124,196,178,.24); }
     .content pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
     .content pre.auto-code { border-left: 4px solid #2ea78c; }
+    .content .mermaid-wrap { margin: 10px 0; overflow-x: auto; border: 1px solid #c8d8d3; border-radius: 10px; padding: 12px; background: linear-gradient(180deg, #fbfefe 0%, #f2f8f6 100%); }
+    .content .mermaid { min-width: max-content; }
     .content .kv-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
     .content .kv-key { color: #1b5e50; font-weight: 700; }
     .doc-table-wrap { overflow-x: auto; margin: 8px 0; }
@@ -135,18 +137,18 @@
     <h1>按需Vsync流程</h1>
     <div class="meta">
       <span class="chip">CMP框架知识地图</span>
-      <span class="chip">22 分钟</span>
+      <span class="chip">2 分钟</span>
       <span class="chip">vsync-optimization/按需Vsync流程.md</span>
     </div>
 
       <section class="section">
         <div class="section-head">
           <h2>概览</h2>
-          <span>22 分钟</span>
+          <span>2 分钟</span>
         </div>
-        <p class="summary">cmp工程关系图 mermaid sequenceDiagram autonumber participant Sample as &quot;compose_sample\ncomp...</p>
-        <ul class="points"><li>cmp工程关系图</li><li>mermaid</li><li>sequenceDiagram</li><li>autonumber</li></ul>
-        <div class="content rich"><p>cmp工程关系图</p><pre><code class="language-mermaid">sequenceDiagram
+        <p class="summary">cmp工程关系图 运行时初始化时序 单次 redraw / Vsync / 出图时序</p>
+        <ul class="points"><li>cmp工程关系图</li><li>运行时初始化时序</li><li>单次 redraw / Vsync / 出图时序</li></ul>
+        <div class="content rich"><p>cmp工程关系图</p><div class="mermaid-wrap"><div class="mermaid">sequenceDiagram
     autonumber
     participant Sample as "compose_sample\ncomposeApp/build.gradle.kts"
     participant Plugin as "compose-multiplatform\nComposePlugin.kt"
@@ -163,7 +165,7 @@
     SkikoBuild-&gt;&gt;OHRender: OHOS 编译时使用 -Pohrender.dir=.../fusion-render/OHRender
     OHRender--&gt;&gt;SkikoBuild: 提供 OHRenderNode / RootRenderNodeManager / RenderNodeImplC
     SkikoBuild--&gt;&gt;Sample: 生成/发布 skiko ohrender 产物供样例消费
-</code></pre><p>运行时初始化时序</p><pre><code class="language-mermaid">sequenceDiagram
+</div></div><p>运行时初始化时序</p><div class="mermaid-wrap"><div class="mermaid">sequenceDiagram
     autonumber
     participant Page as "compose_sample\nIndex1.ets\nIndex1"
     participant ETSCompose as "compose_multiplatform_core\nCompose.ets\nCompose"
@@ -207,7 +209,7 @@
     Container-&gt;&gt;Skiko: CRenderNode.reSize(width,height)
     Skiko-&gt;&gt;RootMgr: Resize(id,width,height)
     Container-&gt;&gt;Container: invalidate()
-</code></pre><p>单次 redraw / Vsync / 出图时序</p><pre><code class="language-mermaid">sequenceDiagram
+</div></div><p>单次 redraw / Vsync / 出图时序</p><div class="mermaid-wrap"><div class="mermaid">sequenceDiagram
     autonumber
     participant Scene as "compose_multiplatform_core\nBaseComposeScene.skiko.kt"
     participant Container as "compose_multiplatform_core\nComposeArkUIViewContainer.kt"
@@ -291,7 +293,7 @@
 
     UIContext--&gt;&gt;FrameMgr: callback RenderFrameCallback.onIdle(timeLeft)
     FrameMgr--&gt;&gt;Container: controller.onIdle(timeLeft)
-</code></pre></div>
+</div></div></div>
       </section>
   </main>
   </div>
@@ -678,6 +680,14 @@
     })();
   </script>
 
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "default"
+    });
+  </script>
   <script>
     (() => {
       const back = document.getElementById("chapter-back-link");
