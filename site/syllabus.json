@@ -1,8 +1,8 @@
 {
   "project": "CMP框架知识地图",
-  "generated_at": "2026-03-02 11:17:11",
+  "generated_at": "2026-03-12 19:44:50",
   "source_root": "/Users/zhangpanmac/.codex/skills/cmp-knowledge-map-builder/assets",
-  "source_file_count": 16,
+  "source_file_count": 18,
   "split_mode": "auto",
   "modules": [
     {
@@ -134,6 +134,96 @@
         }
       ],
       "estimated_minutes": 15
+    },
+    {
+      "module_id": "vsync-eb4e841e",
+      "title": "按需Vsync流程",
+      "source_path": "vsync-optimization/按需Vsync流程.md",
+      "source_file_hash": "eb4e841e46b47eb33b7246c0e4ab16489bed3ea0",
+      "split_mode": "auto",
+      "render_version": 11,
+      "difficulty": 2,
+      "summary": "cmp工程关系图 mermaid sequenceDiagram autonumber participant Sample as \"compose_sample\\ncomp...",
+      "sections": [
+        {
+          "section_id": "0bfe8895c5",
+          "title": "概览",
+          "summary": "cmp工程关系图 mermaid sequenceDiagram autonumber participant Sample as \"compose_sample\\ncomp...",
+          "key_points": [
+            "cmp工程关系图",
+            "mermaid",
+            "sequenceDiagram",
+            "autonumber"
+          ],
+          "estimated_minutes": 22,
+          "content": "cmp工程关系图\n\n```mermaid\nsequenceDiagram\n    autonumber\n    participant Sample as \"compose_sample\\ncomposeApp/build.gradle.kts\"\n    participant Plugin as \"compose-multiplatform\\nComposePlugin.kt\"\n    participant Core as \"compose_multiplatform_core\\ncompose/ui/ui/build.gradle\"\n    participant SkikoBuild as \"skiko\\nbuildSrc/NativeTasksConfiguration.kt\"\n    participant OHRender as \"fusion-render\\nOHRender\"\n\n    Sample->>Plugin: 应用 composeMultiplatform 插件\n    Plugin->>Plugin: 选择 OHOS backend\\n默认 = ohrender\n    Plugin->>Plugin: override org.jetbrains.skiko:* 版本到 ohrender 变体\n    Sample->>Sample: OHOS 配置再显式钉死 skiko=0.9.22.2-ohrender-0.0.1\n    Plugin->>Core: 解析 org.jetbrains.compose.ui 等 Compose 产物\n    Core->>Core: ui 的 skikoMain 依赖 skiko\\nohosArm64Main 依赖 ui-arkui\n    SkikoBuild->>OHRender: OHOS 编译时使用 -Pohrender.dir=.../fusion-render/OHRender\n    OHRender-->>SkikoBuild: 提供 OHRenderNode / RootRenderNodeManager / RenderNodeImplC\n    SkikoBuild-->>Sample: 生成/发布 skiko ohrender 产物供样例消费\n\n```\n\n运行时初始化时序\n\n```mermaid\nsequenceDiagram\n    autonumber\n    participant Page as \"compose_sample\\nIndex1.ets\\nIndex1\"\n    participant ETSCompose as \"compose_multiplatform_core\\nCompose.ets\\nCompose\"\n    participant ETSNode as \"compose_multiplatform_core\\nComposeNode.ets\\nRenderFrameManager / ComposeNodeController\"\n    participant NAPI as \"compose_sample\\nnapi_init.cpp\"\n    participant Container as \"compose_multiplatform_core\\nComposeArkUIViewContainer.kt\"\n    participant Skiko as \"skiko\\nRenderNode.cc\\nCRenderNode\"\n    participant OHNode as \"fusion-render\\nOHRenderNode.cpp\"\n    participant RootMgr as \"fusion-render\\nRootRenderNodeManager\"\n    participant Mediator as \"compose_multiplatform_core\\nComposeSceneMediator.ohos.kt\"\n\n    Page->>Page: new RenderFrameManager(this.getUIContext(), displaySync.create())\n    Page->>NAPI: MainArkUIViewController(frameMgr, enableCApi, rootContent)\n    NAPI->>Container: 构造 ComposeArkUIViewContainer(importFrameMgr, enableCApi, rootContent)\n\n    Container->>Container: renderNode = CRenderNode(rootContent)\n    Container->>Skiko: new CRenderNode(id)\n    Skiko->>OHNode: CreateRootRenderNodeWithoutEvent(id, cRenderNodeDraw)\n    OHNode->>OHNode: InitRootRenderNode(callback)\n    OHNode->>OHNode: rootNode->setNodeImpl(RenderNodeImplC)\n    OHNode->>OHNode: rootNode->initNode(nullptr, true)\n    OHNode->>OHNode: rootNode->setLiveWithJs()\n    OHNode->>OHNode: 若 gDoRedrawFunction 为空则创建 TSFN\n    OHNode->>RootMgr: RegisterNode(id, rootNode)\n    Skiko-->>Container: 返回 CRenderNode\n    Container->>Container: VIEW_MAP[renderNode.id] = this\n\n    Page->>ETSCompose: Compose(controller, frameMgr, enableCApi, rootContent)\n    ETSCompose->>ETSNode: new ComposeNodeController(enableCApi, rootContent)\n    ETSCompose->>ETSNode: composeNodeController.setController(controller)\n    ETSCompose->>ETSNode: frameMgr.setCallbackController(controller)\n\n    Note over ETSCompose,ETSNode: 统一渲染下 build() 用 NodeContainer(composeNodeController)\\n而不是 XComponent\n\n    ETSCompose-->>ETSNode: NodeContainer.onAreaChange(width,height)\n    ETSNode->>ETSNode: ComposeNodeController.reSize(size)\n    ETSNode->>Container: ComposeCRenderNode.reSize -> controller.onSurfaceChanged(width,height)\n\n    Container->>Mediator: createMediatorIfNeeded / setSize(width,height)\n    Container->>Mediator: 首次 0x0 -> setContent { content() }\n    Container->>Skiko: CRenderNode.reSize(width,height)\n    Skiko->>RootMgr: Resize(id,width,height)\n    Container->>Container: invalidate()\n\n```\n\n单次 redraw / Vsync / 出图时序\n\n```mermaid\nsequenceDiagram\n    autonumber\n    participant Scene as \"compose_multiplatform_core\\nBaseComposeScene.skiko.kt\"\n    participant Container as \"compose_multiplatform_core\\nComposeArkUIViewContainer.kt\"\n    participant FrameMgr as \"compose_multiplatform_core\\nComposeNode.ets\\nRenderFrameManager\"\n    participant UIContext as \"ArkUI\\nUIContext / FrameCallback\"\n    participant Skiko as \"skiko\\nRenderNode.cc\\nCRenderNode\"\n    participant RootMgr as \"fusion-render\\nRenderNodeImplC.cpp\\nRootRenderNodeManager\"\n    participant TSFN as \"fusion-render\\nOHRenderNode.cpp\\ngDoRedrawFunction / RenderNodeDoRedraw\"\n    participant ImplC as \"fusion-render\\nRenderNodeImplC.cpp\"\n    participant OHNode as \"fusion-render\\nOHRenderNode.cpp\"\n    participant DrawCb as \"compose_multiplatform_core\\nRenderNodeDrawCallBack\"\n    participant Mediator as \"compose_multiplatform_core\\nComposeSceneMediator.ohos.kt\"\n    participant RS as \"ArkUI RenderService\\nContentModifier onDraw\"\n\n    rect rgb(245,245,255)\n    Note over Scene,UIContext: A. Compose 请求“下一帧”\n    Scene->>Scene: updateInvalidations()\\nframeClock.hasAwaiters 或 snapshot 有脏数据\n    Scene->>Container: 调用注入进 scene 的 invalidate() 回调\n    Container->>Container: if (!active || invalid) return\n    Container->>Container: invalid = true\n    Container->>FrameMgr: postFrameCallback()\n    FrameMgr->>UIContext: context.postFrameCallback(frameCallback)\n    end\n\n    rect rgb(245,255,245)\n    Note over UIContext,Mediator: B1. 下一次系统帧到来，开始“redraw 录制”\n    UIContext-->>FrameMgr: callback RenderFrameCallback.onFrame(frameTimeNanos)\n    FrameMgr-->>Container: controller.onFrame(frameTimeNanos)\n    Container->>Container: if (!invalid) return\n    Container->>Container: invalid = false\n    Container->>Container: vsyncTimeStamp = frameTimeNanos\n    Container->>Skiko: renderNode.notifyRedraw()\n\n    Skiko->>RootMgr: NotifyRedraw(id)\n    RootMgr->>RootMgr: lock + rootNodes_.find(id)\n    RootMgr->>RootMgr: NotifyRedraw(OHRenderNode* node)\n    RootMgr->>RootMgr: if (gDoRedrawFunction && !fHasPendingAsyncTask)\n    RootMgr->>RootMgr: node->fHasPendingAsyncTask = true\n    RootMgr->>TSFN: napi_call_threadsafe_function_with_priority(gDoRedrawFunction, node)\n\n    TSFN-->>TSFN: callback RenderNodeDoRedraw(env, jsCb, context, data=node)\n    TSFN->>ImplC: node->fNodeImpl->doRedraw(node)\n\n    ImplC->>ImplC: setAttribute(fCustomNode, NODE_CLIP, ...)\\n注释: Used to trigger RequestNextVSync\n    ImplC->>OHNode: node->doRedraw()\n\n    OHNode->>OHNode: 若 fRecorder == null 则创建 SkPictureRecorder\n    OHNode->>OHNode: beginRecording(root_real_size)\n    OHNode-->>Skiko: 回调 fCallbackC(fRootNodeId, sk_canvas)\\n这里的 sk_canvas 是“录制画布”\n    Skiko-->>DrawCb: cRenderNodeDraw(id, sk_canvas)\\n再转 drawCallback(id, canvas)\n    DrawCb-->>Container: RenderNodeDrawCallBack(id, canvas)\\n-> container.onDraw(Canvas(canvas.rawValue), 0, 0)\n    Container->>Mediator: mediator.onDraw(recordingCanvas, id, vsyncTimeStamp, 0)\n    Mediator->>Scene: scene.render(canvas.asComposeCanvas(), timestamp)\n\n    Scene->>Scene: recomposer.performScheduledEffects()\n    Scene->>Scene: recomposer.performScheduledRecomposerTasks()\n    Scene->>Scene: frameClock.sendFrame(timestamp)\n    Scene->>Scene: doMeasureAndLayout()\n    Scene->>Scene: draw 到 recordingCanvas\n    Scene-->>Mediator: render 完成\n\n    Mediator-->>Container: 返回\n    Container-->>DrawCb: 返回\n    DrawCb-->>Skiko: 返回\n    Skiko-->>OHNode: 返回\n    OHNode->>OHNode: finishRecordingAsPicture()\n    OHNode->>OHNode: render_node.updateNodeStatus()\n    OHNode->>OHNode: NodeStatusModify::doModify()\n    OHNode->>OHNode: 若 fNodeNeedRedraw / fMarkInvalidate\\npush INVALIDATE 到修改队列\n    TSFN->>TSFN: node->fHasPendingAsyncTask = false\n    end\n\n    rect rgb(255,250,240)\n    Note over RS,OHNode: B2. ArkUI / RenderService 真正回放到显示画布\n    RS-->>ImplC: ContentModifier onDraw(OH_Drawing_Canvas*, userData=node)\n    ImplC->>ImplC: nodeDraw(oh_canvas, selfNode)\n    ImplC->>OHNode: pictureDraw(oh_canvas, false, false)\n    OHNode->>OHNode: 回放刚刚录制好的 picture tree\n    ImplC-->>RS: 实际出图完成\n    end\n\n    UIContext-->>FrameMgr: callback RenderFrameCallback.onIdle(timeLeft)\n    FrameMgr-->>Container: controller.onIdle(timeLeft)\n\n```",
+          "content_html": "<p>cmp工程关系图</p><pre><code class=\"language-mermaid\">sequenceDiagram\n    autonumber\n    participant Sample as \"compose_sample\\ncomposeApp/build.gradle.kts\"\n    participant Plugin as \"compose-multiplatform\\nComposePlugin.kt\"\n    participant Core as \"compose_multiplatform_core\\ncompose/ui/ui/build.gradle\"\n    participant SkikoBuild as \"skiko\\nbuildSrc/NativeTasksConfiguration.kt\"\n    participant OHRender as \"fusion-render\\nOHRender\"\n\n    Sample-&gt;&gt;Plugin: 应用 composeMultiplatform 插件\n    Plugin-&gt;&gt;Plugin: 选择 OHOS backend\\n默认 = ohrender\n    Plugin-&gt;&gt;Plugin: override org.jetbrains.skiko:* 版本到 ohrender 变体\n    Sample-&gt;&gt;Sample: OHOS 配置再显式钉死 skiko=0.9.22.2-ohrender-0.0.1\n    Plugin-&gt;&gt;Core: 解析 org.jetbrains.compose.ui 等 Compose 产物\n    Core-&gt;&gt;Core: ui 的 skikoMain 依赖 skiko\\nohosArm64Main 依赖 ui-arkui\n    SkikoBuild-&gt;&gt;OHRender: OHOS 编译时使用 -Pohrender.dir=.../fusion-render/OHRender\n    OHRender--&gt;&gt;SkikoBuild: 提供 OHRenderNode / RootRenderNodeManager / RenderNodeImplC\n    SkikoBuild--&gt;&gt;Sample: 生成/发布 skiko ohrender 产物供样例消费\n</code></pre><p>运行时初始化时序</p><pre><code class=\"language-mermaid\">sequenceDiagram\n    autonumber\n    participant Page as \"compose_sample\\nIndex1.ets\\nIndex1\"\n    participant ETSCompose as \"compose_multiplatform_core\\nCompose.ets\\nCompose\"\n    participant ETSNode as \"compose_multiplatform_core\\nComposeNode.ets\\nRenderFrameManager / ComposeNodeController\"\n    participant NAPI as \"compose_sample\\nnapi_init.cpp\"\n    participant Container as \"compose_multiplatform_core\\nComposeArkUIViewContainer.kt\"\n    participant Skiko as \"skiko\\nRenderNode.cc\\nCRenderNode\"\n    participant OHNode as \"fusion-render\\nOHRenderNode.cpp\"\n    participant RootMgr as \"fusion-render\\nRootRenderNodeManager\"\n    participant Mediator as \"compose_multiplatform_core\\nComposeSceneMediator.ohos.kt\"\n\n    Page-&gt;&gt;Page: new RenderFrameManager(this.getUIContext(), displaySync.create())\n    Page-&gt;&gt;NAPI: MainArkUIViewController(frameMgr, enableCApi, rootContent)\n    NAPI-&gt;&gt;Container: 构造 ComposeArkUIViewContainer(importFrameMgr, enableCApi, rootContent)\n\n    Container-&gt;&gt;Container: renderNode = CRenderNode(rootContent)\n    Container-&gt;&gt;Skiko: new CRenderNode(id)\n    Skiko-&gt;&gt;OHNode: CreateRootRenderNodeWithoutEvent(id, cRenderNodeDraw)\n    OHNode-&gt;&gt;OHNode: InitRootRenderNode(callback)\n    OHNode-&gt;&gt;OHNode: rootNode-&gt;setNodeImpl(RenderNodeImplC)\n    OHNode-&gt;&gt;OHNode: rootNode-&gt;initNode(nullptr, true)\n    OHNode-&gt;&gt;OHNode: rootNode-&gt;setLiveWithJs()\n    OHNode-&gt;&gt;OHNode: 若 gDoRedrawFunction 为空则创建 TSFN\n    OHNode-&gt;&gt;RootMgr: RegisterNode(id, rootNode)\n    Skiko--&gt;&gt;Container: 返回 CRenderNode\n    Container-&gt;&gt;Container: VIEW_MAP[renderNode.id] = this\n\n    Page-&gt;&gt;ETSCompose: Compose(controller, frameMgr, enableCApi, rootContent)\n    ETSCompose-&gt;&gt;ETSNode: new ComposeNodeController(enableCApi, rootContent)\n    ETSCompose-&gt;&gt;ETSNode: composeNodeController.setController(controller)\n    ETSCompose-&gt;&gt;ETSNode: frameMgr.setCallbackController(controller)\n\n    Note over ETSCompose,ETSNode: 统一渲染下 build() 用 NodeContainer(composeNodeController)\\n而不是 XComponent\n\n    ETSCompose--&gt;&gt;ETSNode: NodeContainer.onAreaChange(width,height)\n    ETSNode-&gt;&gt;ETSNode: ComposeNodeController.reSize(size)\n    ETSNode-&gt;&gt;Container: ComposeCRenderNode.reSize -&gt; controller.onSurfaceChanged(width,height)\n\n    Container-&gt;&gt;Mediator: createMediatorIfNeeded / setSize(width,height)\n    Container-&gt;&gt;Mediator: 首次 0x0 -&gt; setContent { content() }\n    Container-&gt;&gt;Skiko: CRenderNode.reSize(width,height)\n    Skiko-&gt;&gt;RootMgr: Resize(id,width,height)\n    Container-&gt;&gt;Container: invalidate()\n</code></pre><p>单次 redraw / Vsync / 出图时序</p><pre><code class=\"language-mermaid\">sequenceDiagram\n    autonumber\n    participant Scene as \"compose_multiplatform_core\\nBaseComposeScene.skiko.kt\"\n    participant Container as \"compose_multiplatform_core\\nComposeArkUIViewContainer.kt\"\n    participant FrameMgr as \"compose_multiplatform_core\\nComposeNode.ets\\nRenderFrameManager\"\n    participant UIContext as \"ArkUI\\nUIContext / FrameCallback\"\n    participant Skiko as \"skiko\\nRenderNode.cc\\nCRenderNode\"\n    participant RootMgr as \"fusion-render\\nRenderNodeImplC.cpp\\nRootRenderNodeManager\"\n    participant TSFN as \"fusion-render\\nOHRenderNode.cpp\\ngDoRedrawFunction / RenderNodeDoRedraw\"\n    participant ImplC as \"fusion-render\\nRenderNodeImplC.cpp\"\n    participant OHNode as \"fusion-render\\nOHRenderNode.cpp\"\n    participant DrawCb as \"compose_multiplatform_core\\nRenderNodeDrawCallBack\"\n    participant Mediator as \"compose_multiplatform_core\\nComposeSceneMediator.ohos.kt\"\n    participant RS as \"ArkUI RenderService\\nContentModifier onDraw\"\n\n    rect rgb(245,245,255)\n    Note over Scene,UIContext: A. Compose 请求“下一帧”\n    Scene-&gt;&gt;Scene: updateInvalidations()\\nframeClock.hasAwaiters 或 snapshot 有脏数据\n    Scene-&gt;&gt;Container: 调用注入进 scene 的 invalidate() 回调\n    Container-&gt;&gt;Container: if (!active || invalid) return\n    Container-&gt;&gt;Container: invalid = true\n    Container-&gt;&gt;FrameMgr: postFrameCallback()\n    FrameMgr-&gt;&gt;UIContext: context.postFrameCallback(frameCallback)\n    end\n\n    rect rgb(245,255,245)\n    Note over UIContext,Mediator: B1. 下一次系统帧到来，开始“redraw 录制”\n    UIContext--&gt;&gt;FrameMgr: callback RenderFrameCallback.onFrame(frameTimeNanos)\n    FrameMgr--&gt;&gt;Container: controller.onFrame(frameTimeNanos)\n    Container-&gt;&gt;Container: if (!invalid) return\n    Container-&gt;&gt;Container: invalid = false\n    Container-&gt;&gt;Container: vsyncTimeStamp = frameTimeNanos\n    Container-&gt;&gt;Skiko: renderNode.notifyRedraw()\n\n    Skiko-&gt;&gt;RootMgr: NotifyRedraw(id)\n    RootMgr-&gt;&gt;RootMgr: lock + rootNodes_.find(id)\n    RootMgr-&gt;&gt;RootMgr: NotifyRedraw(OHRenderNode* node)\n    RootMgr-&gt;&gt;RootMgr: if (gDoRedrawFunction &amp;&amp; !fHasPendingAsyncTask)\n    RootMgr-&gt;&gt;RootMgr: node-&gt;fHasPendingAsyncTask = true\n    RootMgr-&gt;&gt;TSFN: napi_call_threadsafe_function_with_priority(gDoRedrawFunction, node)\n\n    TSFN--&gt;&gt;TSFN: callback RenderNodeDoRedraw(env, jsCb, context, data=node)\n    TSFN-&gt;&gt;ImplC: node-&gt;fNodeImpl-&gt;doRedraw(node)\n\n    ImplC-&gt;&gt;ImplC: setAttribute(fCustomNode, NODE_CLIP, ...)\\n注释: Used to trigger RequestNextVSync\n    ImplC-&gt;&gt;OHNode: node-&gt;doRedraw()\n\n    OHNode-&gt;&gt;OHNode: 若 fRecorder == null 则创建 SkPictureRecorder\n    OHNode-&gt;&gt;OHNode: beginRecording(root_real_size)\n    OHNode--&gt;&gt;Skiko: 回调 fCallbackC(fRootNodeId, sk_canvas)\\n这里的 sk_canvas 是“录制画布”\n    Skiko--&gt;&gt;DrawCb: cRenderNodeDraw(id, sk_canvas)\\n再转 drawCallback(id, canvas)\n    DrawCb--&gt;&gt;Container: RenderNodeDrawCallBack(id, canvas)\\n-&gt; container.onDraw(Canvas(canvas.rawValue), 0, 0)\n    Container-&gt;&gt;Mediator: mediator.onDraw(recordingCanvas, id, vsyncTimeStamp, 0)\n    Mediator-&gt;&gt;Scene: scene.render(canvas.asComposeCanvas(), timestamp)\n\n    Scene-&gt;&gt;Scene: recomposer.performScheduledEffects()\n    Scene-&gt;&gt;Scene: recomposer.performScheduledRecomposerTasks()\n    Scene-&gt;&gt;Scene: frameClock.sendFrame(timestamp)\n    Scene-&gt;&gt;Scene: doMeasureAndLayout()\n    Scene-&gt;&gt;Scene: draw 到 recordingCanvas\n    Scene--&gt;&gt;Mediator: render 完成\n\n    Mediator--&gt;&gt;Container: 返回\n    Container--&gt;&gt;DrawCb: 返回\n    DrawCb--&gt;&gt;Skiko: 返回\n    Skiko--&gt;&gt;OHNode: 返回\n    OHNode-&gt;&gt;OHNode: finishRecordingAsPicture()\n    OHNode-&gt;&gt;OHNode: render_node.updateNodeStatus()\n    OHNode-&gt;&gt;OHNode: NodeStatusModify::doModify()\n    OHNode-&gt;&gt;OHNode: 若 fNodeNeedRedraw / fMarkInvalidate\\npush INVALIDATE 到修改队列\n    TSFN-&gt;&gt;TSFN: node-&gt;fHasPendingAsyncTask = false\n    end\n\n    rect rgb(255,250,240)\n    Note over RS,OHNode: B2. ArkUI / RenderService 真正回放到显示画布\n    RS--&gt;&gt;ImplC: ContentModifier onDraw(OH_Drawing_Canvas*, userData=node)\n    ImplC-&gt;&gt;ImplC: nodeDraw(oh_canvas, selfNode)\n    ImplC-&gt;&gt;OHNode: pictureDraw(oh_canvas, false, false)\n    OHNode-&gt;&gt;OHNode: 回放刚刚录制好的 picture tree\n    ImplC--&gt;&gt;RS: 实际出图完成\n    end\n\n    UIContext--&gt;&gt;FrameMgr: callback RenderFrameCallback.onIdle(timeLeft)\n    FrameMgr--&gt;&gt;Container: controller.onIdle(timeLeft)\n</code></pre>"
+        }
+      ],
+      "estimated_minutes": 22
+    },
+    {
+      "module_id": "controller-643c9384",
+      "title": "Controller实例生命周期穿刺汇总",
+      "source_path": "principle-analysis/Controller实例生命周期穿刺汇总.md",
+      "source_file_hash": "643c938490bd9264a471d40992eecf84d58ba373",
+      "split_mode": "auto",
+      "render_version": 11,
+      "difficulty": 3,
+      "summary": "1.当实例页面回到前台会触发页面的生命周期onPageShow，若要应用DMA Buffer优化方案，可以在页面onPageShow中调用Controller的onPageS...",
+      "sections": [
+        {
+          "section_id": "a89ff5489b",
+          "title": "**当Controller实例作为页面**",
+          "summary": "1.当实例页面回到前台会触发页面的生命周期onPageShow，若要应用DMA Buffer优化方案，可以在页面onPageShow中调用Controller的onPageS...",
+          "key_points": [
+            "1.当实例页面回到前台会触发页面的生命周期onPageShow，若要应用DMA Buffer优化方案，可以在页面onPageShow中调用Controller的onPageShow，完成对EGL相关资源的创建。",
+            "2.当实例页面进入后台会触发页面的生命周期onPageHide，若要应用DMA Buffer优化方案，可以在页面onPageHide中调用Controller的onPageHide，完成对EGL相关资源的销毁。",
+            "在1、2两个方法实现后，就可以在单实例页面中通过页面的生命后期去控制Conrtorller的生命周期，即可让DMA Buffer优化方案生效"
+          ],
+          "estimated_minutes": 2,
+          "content": "1.当实例页面回到前台会触发页面的生命周期onPageShow，若要应用DMA Buffer优化方案，可以在页面onPageShow中调用Controller的onPageShow，完成对EGL相关资源的创建。\n\n2.当实例页面进入后台会触发页面的生命周期onPageHide，若要应用DMA Buffer优化方案，可以在页面onPageHide中调用Controller的onPageHide，完成对EGL相关资源的销毁。\n\n在1、2两个方法实现后，就可以在单实例页面中通过页面的生命后期去控制Conrtorller的生命周期，即可让DMA Buffer优化方案生效",
+          "content_html": "<p>1.当实例页面回到前台会触发页面的生命周期onPageShow，若要应用DMA Buffer优化方案，可以在页面onPageShow中调用Controller的onPageShow，完成对EGL相关资源的创建。</p><p>2.当实例页面进入后台会触发页面的生命周期onPageHide，若要应用DMA Buffer优化方案，可以在页面onPageHide中调用Controller的onPageHide，完成对EGL相关资源的销毁。</p><p>在1、2两个方法实现后，就可以在单实例页面中通过页面的生命后期去控制Conrtorller的生命周期，即可让DMA Buffer优化方案生效</p>"
+        },
+        {
+          "section_id": "9a27171016",
+          "title": "使用ArkUI的**Tabs+TabContent**组件：",
+          "summary": "实现在多Controller实例页面之间切换，并不会触发onPageShow、onPageHide生命周期。而要应用DMA Buffer优化方案需要触发Controller的...",
+          "key_points": [
+            "实现在多Controller实例页面之间切换，并不会触发onPageShow、onPageHide生命周期。而要应用DMA Buffer优化方案需要触发Controller的onPageShow、onPageHide，因此为解决此问题，可以添加onChange方法，这样在实例页面切换时就会触发涉及页面的生命周期方法，即可让DMA Buffer优化方案生效。",
+            "image-20260306104640886"
+          ],
+          "estimated_minutes": 2,
+          "content": "实现在多Controller实例页面之间切换，并不会触发onPageShow、onPageHide生命周期。而要应用DMA Buffer优化方案需要触发Controller的onPageShow、onPageHide，因此为解决此问题，可以添加onChange方法，这样在实例页面切换时就会触发涉及页面的生命周期方法，即可让DMA Buffer优化方案生效。\n![image-20260306104640886](/Users/zhangpanmac/Library/Application Support/typora-user-images/image-20260306104640886.png)",
+          "content_html": "<p>实现在多Controller实例页面之间切换，并不会触发onPageShow、onPageHide生命周期。而要应用DMA Buffer优化方案需要触发Controller的onPageShow、onPageHide，因此为解决此问题，可以添加onChange方法，这样在实例页面切换时就会触发涉及页面的生命周期方法，即可让DMA Buffer优化方案生效。</p><figure class=\"doc-figure\"><img src=\"../knowledge-map-assets/controller-643c9384-md-30da63ea25.png\" alt=\"image-20260306104640886\" loading=\"lazy\" referrerpolicy=\"no-referrer\" data-origin-src=\"../knowledge-map-assets/controller-643c9384-md-30da63ea25.png\" data-local-match=\"direct\" /><figcaption class=\"img-fallback\">图片加载失败，<a class=\"img-open-link\" href=\"../knowledge-map-assets/controller-643c9384-md-30da63ea25.png\" target=\"_blank\" rel=\"noopener noreferrer\">点击打开原图</a></figcaption></figure>"
+        },
+        {
+          "section_id": "e5fb358daa",
+          "title": "使用ArkUI的**Navigation**组件需注意:",
+          "summary": "NavDestination组件的生命周期参考:子页面生命周期。该生命周期本质是子组件的生命周期，不是页面级的，当NavDestination页面显示在Navigation页...",
+          "key_points": [
+            "NavDestination组件的生命周期参考:子页面生命周期。该生命周期本质是子组件的生命周期，不是页面级的，当NavDestination页面显示在Navigation页面上时，并不会触发Navigation所在页面的onPageShow()事件。对于NavDestination组件，需要通过onShown、onHidden来触发onPageShow、onPageHideimage-20260306144441732",
+            "**NavDestination子页面实际是Navigation根页面的展示区域，是父子组件关系(本质是在一个页面内)。这种独特的导航方式导致，当NavDestination子页面显示在最上层时，前后台切换，看似只会触发该NavDestination子页面的显隐事件，实际也会触发Navigation所在的根页面的显隐事件。image-20260306114544268**",
+            "在Navigation页面上建议使用如上aboutToAppear，若使用onPageShow，当页面隐藏后台，再显示的时候触发了NavDestination页面的aboutToAppear事件，重新创建了子页面。从日志可以看出来，重建了子页面",
+            "f42b22a37dfd126a13caa52f3120884c"
+          ],
+          "estimated_minutes": 2,
+          "content": "NavDestination组件的生命周期参考:子页面生命周期。该生命周期本质是子组件的生命周期，不是页面级的，当NavDestination页面显示在Navigation页面上时，并不会触发Navigation所在页面的onPageShow()事件。对于NavDestination组件，需要通过onShown、onHidden来触发onPageShow、onPageHide![image-20260306144441732](/Users/zhangpanmac/Library/Application Support/typora-user-images/image-20260306144441732.png)\n\n**NavDestination子页面实际是Navigation根页面的展示区域，是父子组件关系(本质是在一个页面内)。这种独特的导航方式导致，当NavDestination子页面显示在最上层时，前后台切换，看似只会触发该NavDestination子页面的显隐事件，实际也会触发Navigation所在的根页面的显隐事件。![image-20260306114544268](/Users/zhangpanmac/Library/Application Support/typora-user-images/image-20260306114544268.png)**\n\n在Navigation页面上建议使用如上aboutToAppear，若使用onPageShow，当页面隐藏后台，再显示的时候触发了NavDestination页面的aboutToAppear事件，重新创建了子页面。从日志可以看出来，重建了子页面\n\n![f42b22a37dfd126a13caa52f3120884c](/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/f42b22a37dfd126a13caa52f3120884c.png)\n\n若在Navigation页面上使用aboutToAppear，则不会![c9b8b0cec4eb0b758a372b81bedf8b92](/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/c9b8b0cec4eb0b758a372b81bedf8b92.png)",
+          "content_html": "<p>NavDestination组件的生命周期参考:子页面生命周期。该生命周期本质是子组件的生命周期，不是页面级的，当NavDestination页面显示在Navigation页面上时，并不会触发Navigation所在页面的onPageShow()事件。对于NavDestination组件，需要通过onShown、onHidden来触发onPageShow、onPageHide!<a href=\"../knowledge-map-assets/controller-643c9384-file-6192fe84a7.png\" target=\"_blank\" rel=\"noopener noreferrer\">image-20260306144441732</a></p><p><strong>NavDestination子页面实际是Navigation根页面的展示区域，是父子组件关系(本质是在一个页面内)。这种独特的导航方式导致，当NavDestination子页面显示在最上层时，前后台切换，看似只会触发该NavDestination子页面的显隐事件，实际也会触发Navigation所在的根页面的显隐事件。!<a href=\"../knowledge-map-assets/controller-643c9384-file-99951a744a.png\" target=\"_blank\" rel=\"noopener noreferrer\">image-20260306114544268</a></strong></p><p>在Navigation页面上建议使用如上aboutToAppear，若使用onPageShow，当页面隐藏后台，再显示的时候触发了NavDestination页面的aboutToAppear事件，重新创建了子页面。从日志可以看出来，重建了子页面</p><figure class=\"doc-figure\"><img src=\"/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/f42b22a37dfd126a13caa52f3120884c.png\" alt=\"f42b22a37dfd126a13caa52f3120884c\" loading=\"lazy\" referrerpolicy=\"no-referrer\" data-origin-src=\"/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/f42b22a37dfd126a13caa52f3120884c.png\" data-local-match=\"\" /><figcaption class=\"img-fallback\">图片加载失败，<a class=\"img-open-link\" href=\"/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/f42b22a37dfd126a13caa52f3120884c.png\" target=\"_blank\" rel=\"noopener noreferrer\">点击打开原图</a></figcaption></figure><p>若在Navigation页面上使用aboutToAppear，则不会!<a href=\"/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat<em>files/wxid</em>mfp4pjcazvzt22<em>4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/c9b8b0cec4eb0b758a372b81bedf8b92.png\" target=\"</em>blank\" rel=\"noopener noreferrer\">c9b8b0cec4eb0b758a372b81bedf8b92</a></p>"
+        },
+        {
+          "section_id": "6473000034",
+          "title": "**当Controller实例作为自定义组件**",
+          "summary": "自定义组件可以通过onVisibleAreaChange来触发Controller的onPageShow、onPageHidedc3ec93d34a2165175c01728...",
+          "key_points": [
+            "自定义组件可以通过onVisibleAreaChange来触发Controller的onPageShow、onPageHidedc3ec93d34a2165175c01728f3dbdc69"
+          ],
+          "estimated_minutes": 2,
+          "content": "自定义组件可以通过onVisibleAreaChange来触发Controller的onPageShow、onPageHide![dc3ec93d34a2165175c01728f3dbdc69](/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/dc3ec93d34a2165175c01728f3dbdc69.png)",
+          "content_html": "<p>自定义组件可以通过onVisibleAreaChange来触发Controller的onPageShow、onPageHide!<a href=\"/Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat<em>files/wxid</em>mfp4pjcazvzt22<em>4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/dc3ec93d34a2165175c01728f3dbdc69.png\" target=\"</em>blank\" rel=\"noopener noreferrer\">dc3ec93d34a2165175c01728f3dbdc69</a></p>"
+        }
+      ],
+      "estimated_minutes": 8
     },
     {
       "module_id": "ltpo-0aaa5e4a",
@@ -1028,7 +1118,7 @@
   ],
   "learning_path": {
     "target_minutes": 60,
-    "actual_minutes": 374,
+    "actual_minutes": 398,
     "sections": [
       {
         "order": 1,
@@ -1077,6 +1167,24 @@
       },
       {
         "order": 6,
+        "module_id": "vsync-eb4e841e",
+        "module_title": "按需Vsync流程",
+        "section_id": "0bfe8895c5",
+        "section_title": "概览",
+        "minutes": 22,
+        "reason": "进入模块核心"
+      },
+      {
+        "order": 7,
+        "module_id": "controller-643c9384",
+        "module_title": "Controller实例生命周期穿刺汇总",
+        "section_id": "a89ff5489b",
+        "section_title": "**当Controller实例作为页面**",
+        "minutes": 2,
+        "reason": "进入模块核心"
+      },
+      {
+        "order": 8,
         "module_id": "ltpo-0aaa5e4a",
         "module_title": "LTPO 动态刷新率方案",
         "section_id": "53a0c04fe9",
@@ -1085,7 +1193,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 7,
+        "order": 9,
         "module_id": "ohrendernode-rendernodelayer-aae602d5",
         "module_title": "OHRenderNode 与 RenderNodeLayer 录制协作机制详解",
         "section_id": "8e74c3a13a",
@@ -1094,7 +1202,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 8,
+        "order": 10,
         "module_id": "module-f09e99ae",
         "module_title": "非三明治混排原理",
         "section_id": "9d3398a6ad",
@@ -1103,7 +1211,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 9,
+        "order": 11,
         "module_id": "dvsync-e9db150d",
         "module_title": "DVSync接入方案文档",
         "section_id": "0a68f84283",
@@ -1112,7 +1220,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 10,
+        "order": 12,
         "module_id": "vsync-5b772145",
         "module_title": "VSYNC空跑问题根因分析与解决方案",
         "section_id": "21f698f500",
@@ -1121,7 +1229,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 11,
+        "order": 13,
         "module_id": "vsync-2-3c24314d",
         "module_title": "VSYNC空跑问题根因分析与解决方案-2",
         "section_id": "9dff065940",
@@ -1130,7 +1238,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 12,
+        "order": 14,
         "module_id": "ohos-coil-abc42967",
         "module_title": "OHOS 下 Coil 自定义解码方案梳理",
         "section_id": "b07f3cf38b",
@@ -1139,7 +1247,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 13,
+        "order": 15,
         "module_id": "savelayer-b18a6be3",
         "module_title": "saveLayer 实现方案解析",
         "section_id": "76481f50bc",
@@ -1148,7 +1256,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 14,
+        "order": 16,
         "module_id": "slottable-composition-8939c899",
         "module_title": "SlotTable 与 Composition 完整详解",
         "section_id": "57b8165d6f",
@@ -1157,7 +1265,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 15,
+        "order": 17,
         "module_id": "module-10d487ca",
         "module_title": "指令录制与绘制机制",
         "section_id": "ac1751a22b",
@@ -1166,7 +1274,7 @@
         "reason": "进入模块核心"
       },
       {
-        "order": 16,
+        "order": 18,
         "module_id": "kmp-f03735ca",
         "module_title": "KMP工程集成鸿蒙应用完整教程",
         "section_id": "8cb4de0fa1",
@@ -1176,5 +1284,8 @@
       }
     ]
   },
-  "generation_warnings": []
+  "generation_warnings": [
+    "/Users/zhangpanmac/.codex/skills/cmp-knowledge-map-builder/assets/principle-analysis/Controller实例生命周期穿刺汇总.md:L22 未解析图片: /Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/f42b22a37dfd126a13caa52f3120884c.png (alt=f42b22a37dfd126a13caa52f3120884c)",
+    "/Users/zhangpanmac/.codex/skills/cmp-knowledge-map-builder/assets/principle-analysis/Controller实例生命周期穿刺汇总.md:L7 未解析图片: /Users/zhangpanmac/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_mfp4pjcazvzt22_4b23/temp/RWTemp/2026-03/9e20f478899dc29eb19741386f9343c8/f42b22a37dfd126a13caa52f3120884c.png (alt=f42b22a37dfd126a13caa52f3120884c)"
+  ]
 }
